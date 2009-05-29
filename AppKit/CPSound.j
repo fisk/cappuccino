@@ -25,6 +25,7 @@
 @import <Foundation/CPString.j>
 
 var _CPMixerDiv = nil;
+var _CPMixerCounter = 0;
 
 @implementation CPSound : CPObject
 {
@@ -56,11 +57,49 @@ var _CPMixerDiv = nil;
 		_DOMAudioElement.setAttribute("controls", "false");
 		_DOMAudioElement.setAttribute("playcount", "1");
 		
+		var _DOMObjectElement = document.createElement("object");
+		_DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");
+		_DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
+		_DOMObjectElement.setAttribute("type", "audio/x-mpeg");
+		_DOMObjectElement.setAttribute("src", aFileName);
+		_DOMObjectElement.setAttribute("data", aFileName);
+		var _DOMParamElement = document.createElement("param");
+		_DOMParamElement.setAttribute("src", aFileName);
+		_DOMObjectElement.appendChild(_DOMParamElement);
+		_DOMParamElement = document.createElement("param");
+		_DOMParamElement.setAttribute("controller", "false");
+		_DOMObjectElement.appendChild(_DOMParamElement);
+		_DOMParamElement = document.createElement("param");
+		_DOMParamElement.setAttribute("autoplay", "false");
+		_DOMObjectElement.appendChild(_DOMParamElement);
+		_DOMParamElement = document.createElement("param");
+		_DOMParamElement.setAttribute("autostart", "0");
+		_DOMObjectElement.appendChild(_DOMParamElement);
+		_DOMParamElement = document.createElement("param");
+		_DOMParamElement.setAttribute("pluginurl", "http://www.apple.com/quicktime/download/");
+		_DOMObjectElement.appendChild(_DOMParamElement);
+		_DOMParamElement = document.createElement("param");
+		_DOMParamElement.setAttribute("hidden", "true");
+		_DOMObjectElement.appendChild(_DOMParamElement);
+		
+		var _DOMEmbedElement = document.createElement("embed");
+		_DOMEmbedElement.setAttribute("src", aFileName);
+		_DOMEmbedElement.setAttribute("type", "audio/x-mpeg");
+		_DOMEmbedElement.setAttribute("autostart", "false");
+		_DOMEmbedElement.setAttribute("controller", "false");
+		_DOMEmbedElement.setAttribute("hidden", "true");
+		
+		_DOMObjectElement.appendChild(_DOMEmbedElement);
+		_DOMAudioElement.appendChild(_DOMObjectElement);
+		_CPMixerDiv.appendChild(_DOMObjectElement);
+		
+		_DOMAudioElement = _DOMAudioElement;
+		_CPMixerCounter++;
+		
 		_DOMAudioElement.addEventListener('ended', function () {
 			if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
 				[_delegate sound:self didFinishPlaying:YES];
 		} );
-		_CPMixerDiv.appendChild(_DOMAudioElement);
     }
     return self;
 }

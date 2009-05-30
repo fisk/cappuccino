@@ -24,12 +24,23 @@
 @import <Foundation/CPObject.j>
 @import <Foundation/CPString.j>
 
+#define CP_SOUND_USE_EMBED				1
+#define CP_SOUND_USE_OBJECT				2
+#define CP_SOUND_USE_OBJECT_NOT_IE		3
+#define CP_SOUND_USE_AUDIO				4
+
 var _CPMixerDiv = nil;
 var _CPMixerCounter = 0;
 
 @implementation CPSound : CPObject
 {
     DOMElement _DOMAudioElement;
+	DOMElement _DOMObjectElement = document.createElement("object");
+	DOMElement _DOMObjectElementNotIE = document.createElement("object");
+	DOMElement _DOMParamElement = document.createElement("param");
+	DOMElement _DOMEmbedElement = document.createElement("embed");
+	DOMElement _Player;
+	var        _PlayerType
 	CPObject _delegate;
 }
 
@@ -52,18 +63,22 @@ var _CPMixerCounter = 0;
 		var aFileName = [[CPBundle mainBundle] pathForResource:resource];
 		
 		_DOMAudioElement = document.createElement("audio");
-		_DOMAudioElement.setAttribute("src", aFileName);
+		_DOMObjectElement = document.createElement("object");
+		_DOMObjectElementNotIE = document.createElement("object");
+		_DOMParamElement = document.createElement("param");
+		_DOMEmbedElement = document.createElement("embed");
+		
+		_DOMAudioElement.setAttribute("src", aFileName);	// Audio-tag
 		_DOMAudioElement.setAttribute("autoplay", "false");
 		_DOMAudioElement.setAttribute("controls", "false");
-		_DOMAudioElement.setAttribute("playcount", "1");
+		_DOMAudioElement.setAttribute("id", "CPMixer" + "Audio"+_CPMixerCounter);
 		
-		var _DOMObjectElement = document.createElement("object");
-		_DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");
+		_DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");	// Object-tag
 		_DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
-		_DOMObjectElement.setAttribute("type", "audio/x-mpeg");
-		_DOMObjectElement.setAttribute("src", aFileName);
-		_DOMObjectElement.setAttribute("data", aFileName);
-		var _DOMParamElement = document.createElement("param");
+		_DOMObjectElement.setAttribute("width", "0");
+		_DOMObjectElement.setAttribute("height", "0");
+		_DOMObjectElement.setAttribute("id", "CPMixer" + "Object"+_CPMixerCounter);
+		
 		_DOMParamElement.setAttribute("src", aFileName);
 		_DOMObjectElement.appendChild(_DOMParamElement);
 		_DOMParamElement = document.createElement("param");
@@ -76,30 +91,86 @@ var _CPMixerCounter = 0;
 		_DOMParamElement.setAttribute("autostart", "0");
 		_DOMObjectElement.appendChild(_DOMParamElement);
 		_DOMParamElement = document.createElement("param");
-		_DOMParamElement.setAttribute("pluginurl", "http://www.apple.com/quicktime/download/");
+		_DOMParamElement.setAttribute("pluginspage", "http://www.apple.com/quicktime/download/");
 		_DOMObjectElement.appendChild(_DOMParamElement);
 		_DOMParamElement = document.createElement("param");
 		_DOMParamElement.setAttribute("hidden", "true");
 		_DOMObjectElement.appendChild(_DOMParamElement);
 		
-		var _DOMEmbedElement = document.createElement("embed");
-		_DOMEmbedElement.setAttribute("src", aFileName);
+		if (!(navigator.appName == "Microsoft Internet Explorer")){
+			
+			_DOMObjectElementNotIE.setAttribute("type", "audio/x-mpeg");	// Object-tag
+			_DOMObjectElementNotIE.setAttribute("data", aFileName);
+			_DOMObjectElementNotIE.setAttribute("width", "0");
+			_DOMObjectElementNotIE.setAttribute("height", "0");
+			_DOMObjectElementNotIE.setAttribute("id", "CPMixer" + "Object"+_CPMixerCounter+"notIE");
+			
+			_DOMParamElement.setAttribute("src", aFileName);
+			_DOMObjectElementNotIE.appendChild(_DOMParamElement);
+			_DOMParamElement = document.createElement("param");
+			_DOMParamElement.setAttribute("controller", "false");
+			_DOMObjectElementNotIE.appendChild(_DOMParamElement);
+			_DOMParamElement = document.createElement("param");
+			_DOMParamElement.setAttribute("autoplay", "false");
+			_DOMObjectElementNotIE.appendChild(_DOMParamElement);
+			_DOMParamElement = document.createElement("param");
+			_DOMParamElement.setAttribute("autostart", "0");
+			_DOMObjectElement.appendChild(_DOMParamElement);
+			_DOMParamElement = document.createElement("param");
+			_DOMParamElement.setAttribute("pluginurl", "http://www.apple.com/quicktime/download/");
+			_DOMObjectElementNotIE.appendChild(_DOMParamElement);
+			_DOMParamElement = document.createElement("param");
+			_DOMParamElement.setAttribute("hidden", "true");
+			_DOMObjectElementNotIE.appendChild(_DOMParamElement);
+			
+			_DOMObjectElement.appendChild(_DOMObjectElementNotIE);
+		}
+		
+		_DOMEmbedElement.setAttribute("src", aFileName);	// Embed-tag
 		_DOMEmbedElement.setAttribute("type", "audio/x-mpeg");
-		_DOMEmbedElement.setAttribute("autostart", "false");
+		_DOMEmbedElement.setAttribute("autostart", "0");
+		_DOMEmbedElement.setAttribute("autoplay", "false");
 		_DOMEmbedElement.setAttribute("controller", "false");
-		_DOMEmbedElement.setAttribute("hidden", "true");
+		_DOMEmbedElement.setAttribute("id", "CPMixer" + "Embed"+_CPMixerCounter);
 		
-		_DOMObjectElement.appendChild(_DOMEmbedElement);
+		_DOMObjectElementNotIE.appendChild(_DOMEmbedElement);
+		_DOMObjectElement.appendChild(_DOMObjectElementNotIE);
 		_DOMAudioElement.appendChild(_DOMObjectElement);
-		_CPMixerDiv.appendChild(_DOMObjectElement);
+		_CPMixerDiv.appendChild(_DOMAudioElement);
 		
-		_DOMAudioElement = _DOMAudioElement;
+		_Player = document.getElementsByName("CPMixer" + "Embed"+_CPMixerCounter);
+		if (_Player.length == 0)
+		{
+			_Player = document.getElementById("CPMixer" + "Object"+_CPMixerCounter + "notIE");
+			_PlayerType = CP_SOUND_USE_OBJECT_NOT_IE;
+		} else {
+			_Player = _Player[0];
+			_PlayerType = CP_SOUND_USE_EMBED;
+		}
+		if (!_Player)
+		{
+			_Player = document.getElementById("CPMixer" + "Object"+_CPMixerCounter);
+			_PlayerType = CP_SOUND_USE_OBJECT;
+		}
+		if (!_Player)
+		{
+			_Player = document.getElementById("CPMixer" + "Audio"+_CPMixerCounter);
+			_PlayerType = CP_SOUND_USE_AUDIO;
+		}
 		_CPMixerCounter++;
 		
-		_DOMAudioElement.addEventListener('ended', function () {
-			if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-				[_delegate sound:self didFinishPlaying:YES];
-		} );
+		if (navigator.appName == "Microsoft Internet Explorer")
+		{
+			_Player.attachEvent('onended', function () {
+				if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
+					[_delegate sound:self didFinishPlaying:YES];
+			} );
+		} else {
+			_Player.addEventListener('ended', function () {
+				if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
+					[_delegate sound:self didFinishPlaying:YES];
+			} , false);
+		}
     }
     return self;
 }
@@ -107,20 +178,20 @@ var _CPMixerCounter = 0;
 - (void)setAudio:(CPString)resource
 {
 	var aFileName = [[CPBundle mainBundle] pathForResource:resource];
-	_DOMAudioElement.setAttribute("src", aFileName);
+	_Player.setAttribute("src", aFileName);
 }
 
 - (void)setControls:(BOOL)controls
 {
 	if (controls)
-		_DOMAudioElement.setAttribute("controls", "true");
+		_Player.setAttribute("controls", "true");
 	else
-		_DOMAudioElement.setAttribute("controls", "false");
+		_Player.setAttribute("controls", "false");
 }
 
 - (void)setPlaycount:(unsigned)playcount
 {
-	_DOMAudioElement.setAttribute("playcount", [CPString stringWithFormat:@"%d", playcount]);
+	_Player.setAttribute("playcount", [CPString stringWithFormat:@"%d", playcount]);
 }
 
 - (void)setDelegate:(CPObject)delegate
@@ -135,22 +206,34 @@ var _CPMixerCounter = 0;
 
 - (BOOL)isPlaying
 {
-	return !_DOMAudioElement.paused;
+	return !_Player.paused;
 }
 
 - (void)play
 {
-	_DOMAudioElement.play();
+	if(_Player.Play){
+		_Player.Play();
+	} else {
+		_Player.play();
+	}
 }
 
 - (void)pause
 {
-	_DOMAudioElement.pause();
+	if(_Player.Pause){
+		_Player.Pause();
+	} else {
+		_Player.pause();
+	}
 }
 
 - (void)stop
 {
-	_DOMAudioElement.stop();
+	if(_Player.Stop){
+		_Player.Stop();
+	} else {
+		_Player.stop();
+	}
 }
 
 - (void)sound:(CPSound)sound didFinishPlaying:(BOOL)finishedPlaying

@@ -26,6 +26,7 @@
 @import "CPSortDescriptor.j"
 @import "CPException.j"
 
+
 /* @ignore */
 @implementation _CPArrayEnumerator : CPEnumerator
 {
@@ -488,7 +489,7 @@
 */
 - (unsigned)indexOfObject:(id)anObject sortedByDescriptors:(CPArray)descriptors
 {
-    [self indexOfObject:anObject sortedByFunction:function(lhs, rhs)
+    return [self indexOfObject:anObject sortedByFunction:function(lhs, rhs)
     {
         var i = 0,
             count = [descriptors count],
@@ -520,6 +521,9 @@
 */
 - (id)objectAtIndex:(int)anIndex
 {
+    if (anIndex >= length)
+        [CPException raise:CPRangeException reason:@"index (" + anIndex + @") beyond bounds (" + length + @")"];
+
     return self[anIndex];
 }
 

@@ -785,7 +785,7 @@ var CTRL_KEY_CODE   = 17;
             
         location.x -= CGRectGetMinX(windowFrame);
         location.y -= CGRectGetMinY(windowFrame);
-                
+
         if(typeof aDOMEvent.wheelDeltaX != "undefined")
         {
             deltaX = aDOMEvent.wheelDeltaX / 120.0;
@@ -811,8 +811,8 @@ var CTRL_KEY_CODE   = 17;
                 timestamp:timestamp windowNumber:windowNumber context:nil eventNumber:-1 clickCount:1 pressure:0 ];
         
         event._DOMEvent = aDOMEvent;
-        event._deltaX = ROUND(deltaX * 1.5);
-        event._deltaY = ROUND(deltaY * 1.5);
+        event._deltaX = deltaX;
+        event._deltaY = deltaY;
         
         [CPApp sendEvent:event];
             
@@ -1017,4 +1017,44 @@ var CPDOMEventStop = function(aDOMEvent)
         CPSharedDOMWindowBridge._DOMFocusElement.focus();
         CPSharedDOMWindowBridge._DOMFocusElement.blur();
     }
+}
+
+function CPWindowObjectList()
+{
+    var bridge = [CPDOMWindowBridge sharedDOMWindowBridge],
+        levels = bridge._windowLevels,
+        layers = bridge._windowLayers,
+        levelCount = levels.length,
+        windowObjects = [];
+
+    while (levelCount--)
+    {
+        var windows = [layers objectForKey:levels[levelCount]]._windows,
+            windowCount = windows.length;
+
+        while (windowCount--)
+            windowObjects.push(windows[windowCount]);
+    }
+
+    return windowObjects;
+}
+
+function CPWindowList()
+{
+    var bridge = [CPDOMWindowBridge sharedDOMWindowBridge],
+        levels = bridge._windowLevels,
+        layers = bridge._windowLayers,
+        levelCount = levels.length,
+        windowNumbers = [];
+
+    while (levelCount--)
+    {
+        var windows = [layers objectForKey:levels[levelCount]]._windows,
+            windowCount = windows.length;
+
+        while (windowCount--)
+            windowNumbers.push([windows[windowCount] windowNumber]);
+    }
+
+    return windowNumbers;
 }

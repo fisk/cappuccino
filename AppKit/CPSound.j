@@ -31,12 +31,14 @@
 
 var _CPMixerDiv = nil;
 var _CPMixerCounter = 0;
+var _CPMixerSounds = nil;
 
 @implementation CPSound : CPObject
 {
 	DOMElement _Player;			// The DOM element that will be used and controlled
 	var        _PlayerType		// The kind of DOM element we are using
 	CPObject   _delegate;		// The delegate, which will be informed when the song ended
+	CPString   _name;			// The name of the sound
 }
 
 + (void)initialize
@@ -47,6 +49,12 @@ var _CPMixerCounter = 0;
 	body.appendChild(_CPMixerDiv);
 	_CPMixerDiv.style.width = "0px";
 	_CPMixerDiv.style.height = "0px";
+	_CPMixerSounds = [[CPDictionary alloc] init];
+}
+
++ (CPSound)soundNamed:(NSString)name
+{
+	return [_CPMixerSounds objectForKey:name];
 }
 
 - (BOOL)_haveQuickTime
@@ -207,6 +215,7 @@ var _CPMixerCounter = 0;
     if (self)	//TODO: We currently rely on quicktime, but other plugins could be used as well.
     {
 		var aFileName = [[CPBundle mainBundle] pathForResource:resource];
+		_name = nil;
 		
 		if (![self _configureQuickTimeWithFile:aFileName])
 		{
@@ -261,6 +270,17 @@ var _CPMixerCounter = 0;
 - (void)sound:(CPSound)sound didFinishPlaying:(BOOL)finishedPlaying
 {
 
+}
+
+- (void)setName:(CPString)name
+{
+	[_CPMixerSounds setObject:self forKey:name];
+	_name = name;
+}
+
+- (CPString)name
+{
+	return _name;
 }
 
 @end

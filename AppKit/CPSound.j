@@ -77,12 +77,13 @@ var _CPMixerSounds = nil;
     if (self)  //TODO: We currently rely on quicktime, but other plugins could be used as well.
     {
         var aFileName = [[CPBundle mainBundle] pathForResource:resource];
-        _name = nil;
         
-        if (self = [[_CPAudioSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
-            return self;
         if (self = [[_CPQuickTimeSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
             return self;
+        if (self = [[_CPAudioSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
+            return self;
+        
+        _name = nil;
     }
     return nil;
 }

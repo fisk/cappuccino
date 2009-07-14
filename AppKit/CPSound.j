@@ -155,15 +155,14 @@ var _CPMixerSounds = nil;
     _DOMAudioElement.setAttribute("autostart", "0");
     _DOMAudioElement.setAttribute("controls", "false");
     _DOMAudioElement.setAttribute("id", "CPMixer" + "Audio"+_CPMixerCounter);
+    _DOMAudioElement.loop = false;
     
     return _DOMAudioElement;
 }
 
 - (id)_CreateDOMObjectElement:(NSString)aFileName
 {
-    var base = window.location.protocol + "//" + window.location.host + window.location.pathname + "/";
-    
-    var _DOMObjectElement = document.createElement("object");  // Object-tag
+    var _DOMObjectElement = document.createElement("object");
     var _DOMParamElement = document.createElement("param");
     
     _DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");
@@ -171,7 +170,7 @@ var _CPMixerSounds = nil;
     _DOMObjectElement.setAttribute("width", "0");
     _DOMObjectElement.setAttribute("height", "0");
     
-    _DOMParamElement.setAttribute("src", base+aFileName);
+    _DOMParamElement.setAttribute("src", aFileName);
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
     _DOMParamElement.setAttribute("controller", "false");
@@ -269,6 +268,57 @@ var _CPMixerSounds = nil;
     } else if (_PlayerType == CP_SOUND_USE_AUDIO){
         _Player.pause();
         _Player.currentTime = 0;
+    }
+}
+
+// Volume between 0 and 1
+- (var)volume
+{
+    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
+        return _Player.GetVolume() / 256.0;
+    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
+        return _Player.volume;
+    }
+}
+
+// Set volume between 0 and 1
+- (void)setVolume:(var)volume
+{
+    if (volume > 1)
+        volume = 1;
+    else if (volume < 0)
+        volume = 0;
+    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
+        _Player.SetVolume(volume*256);
+    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
+        _Player.volume = volume;
+    }
+}
+
+- (var)duration
+{
+    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
+        return _Player.GetDuration() / _Player.GetTimeScale();
+    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
+        return _Player.duration;
+    }
+}
+
+- (BOOL)loops()
+{
+    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
+        return _Player.GetIsLooping() != 0;
+    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
+        return _Player.loop == nil;
+    }
+}
+
+- (void)setLoops:(BOOL)loops
+{
+    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
+        _Player.SetIsLooping(loops?1:0);
+    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
+        _Player.loop = loops;
     }
 }
 

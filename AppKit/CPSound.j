@@ -26,18 +26,24 @@
 @import <Foundation/CPString.j>
 @import <Foundation/CPDictionary.j>
 
-#define CP_SOUND_USE_EMBED_QUICKTIME        1
-#define CP_SOUND_USE_OBJECT_QUICKTIME       2
-#define CP_SOUND_USE_AUDIO					3
-
 var _CPMixerDiv = nil;
-var _CPMixerCounter = 0;
 var _CPMixerSounds = nil;
 
+/*! @class CPSound
+    
+    CPSound is a class cluster consisting of different classes depending on 
+    what addons and tags are available on the current browser. You should
+    never create one of the subclasses directly, so use this class only.
+
+    @delegate – sound:(CPSound)aSound didFinishPlaying:(BOOL)finished
+    If the delegate implements this method, the CPSound will tell when the
+    sound is done playing.
+    
+    @param aSound the sound that completed
+    @param finished whether or not we are done playing
+*/
 @implementation CPSound : CPObject
 {
-    DOMElement _Player;      // The DOM element that will be used and controlled
-    var        _PlayerType    // The kind of DOM element we are using
     CPObject   _delegate;    // The delegate, which will be informed when the song ended
     CPString   _name;      // The name of the sound
 }
@@ -52,163 +58,18 @@ var _CPMixerSounds = nil;
     _CPMixerDiv.style.height = "0px";
     _CPMixerSounds = [CPDictionary dictionary];
 }
- 
+
+/*!
+    Returns the sound with a given name which can be set with setName:
+*/
 + (id)soundNamed:(NSString)aName
 {
     return [_CPMixerSounds objectForKey:aName];
 }
 
-- (BOOL)_haveQuickTime
-{
-    var haveqt = NO;
-    if (navigator.plugins) {
-        for (i=0; i < navigator.plugins.length; i++ ) {
-            if (navigator.plugins[i].name.indexOf("QuickTime") >= 0)
-            {
-                haveqt = YES;
-            }
-        }
-    }
-    
-    if ((navigator.appVersion.indexOf("Mac") > 0)
-        && (navigator.appName.substring(0,9) == "Microsoft")
-        && (parseInt(navigator.appVersion) < 5) )
-    {
-        haveqt = YES;
-    }
-    
-    return haveqt;
-}
- 
-- (id)_configureQuickTimeWithFile:(NSString)aFileName
-{
-    if(![self _haveQuickTime])
-    return NO;
-    
-    var _DOMObjectElement = [self _CreateDOMObjectElement:aFileName];
-    var _DOMEmbedElement = [self _CreateDOMEmbedElement:aFileName];
-    
-    _DOMObjectElement.appendChild(_DOMEmbedElement);
-    _CPMixerDiv.appendChild(_DOMObjectElement);
-    
-    _Player = document.getElementsByName("CPMixer" + "Embed"+_CPMixerCounter);
-    if (_Player.length == 0)
-    {
-        _Player = document.getElementById("CPMixer" + "Object"+_CPMixerCounter);
-        _PlayerType = CP_SOUND_USE_OBJECT_QUICKTIME;
-    } else {
-        _Player = _Player[0];
-        _PlayerType = CP_SOUND_USE_EMBED_QUICKTIME;
-    }
-    
-    _CPMixerCounter++;
-    
-    if (document.addEventListener)
-    {
-        _Player.addEventListener('qt_ended', function () {
-            if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-            [_delegate sound:self didFinishPlaying:YES];
-        } , false);
-    } else {
-        _Player.attachEvent('onqt_ended', function () {
-            if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-            [_delegate sound:self didFinishPlaying:YES];
-        });  // Internet Explorer
-    }
-    
-    return YES;
-}
-
-- (BOOL)_configureAudioWithFile:(NSString)aFileName
-{
-   var _DOMAudioElement = [self _CreateDOMAudioElement:aFileName];
-    _CPMixerDiv.appendChild(_DOMAudioElement);
-   if(!document.getElementById("CPMixer" + "Audio"+_CPMixerCounter))
-    return NO;
-    
-    _Player = _DOMAudioElement;
-    _PlayerType = CP_SOUND_USE_AUDIO;
-    
-    _CPMixerCounter++;
-    
-    if (document.addEventListener)
-    {
-        _Player.addEventListener('ended', function () {
-            if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-            [_delegate sound:self didFinishPlaying:YES];
-        } , false);
-    } else {
-        _Player.attachEvent('onended', function () {
-            if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-            [_delegate sound:self didFinishPlaying:YES];
-        });  // Internet Explorer
-    }
-    
-    return YES;
-}
-
-- (BOOL)_CreateDOMAudioElement:(NSString)aFileName
-{
-    var _DOMAudioElement = document.createElement("audio");
-    _DOMAudioElement.setAttribute("src", aFileName);
-    _DOMAudioElement.setAttribute("autoplay", "false");
-    _DOMAudioElement.setAttribute("autostart", "0");
-    _DOMAudioElement.setAttribute("controls", "false");
-    _DOMAudioElement.setAttribute("id", "CPMixer" + "Audio"+_CPMixerCounter);
-    _DOMAudioElement.loop = false;
-    
-    return _DOMAudioElement;
-}
-
-- (id)_CreateDOMObjectElement:(NSString)aFileName
-{
-    var _DOMObjectElement = document.createElement("object");
-    var _DOMParamElement = document.createElement("param");
-    
-    _DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");
-    _DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
-    _DOMObjectElement.setAttribute("width", "0");
-    _DOMObjectElement.setAttribute("height", "0");
-    
-    _DOMParamElement.setAttribute("src", aFileName);
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("controller", "false");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("autoplay", "false");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("hidden", "true");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("enablejavascript", "true");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("postdomevents", "true");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("id", "CPMixer" + "Object"+_CPMixerCounter);
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    
-    return _DOMObjectElement;
-}
-
-- (id)_CreateDOMEmbedElement:(NSString)aFileName
-{
-    var _DOMEmbedElement = document.createElement("embed");  // Embed-tag
-    
-    _DOMEmbedElement.setAttribute("src", aFileName);
-    _DOMEmbedElement.setAttribute("width", "0");
-    _DOMEmbedElement.setAttribute("height", "0");
-    _DOMEmbedElement.setAttribute("pluginspage", "http://www.apple.com/quicktime/download/");
-    _DOMEmbedElement.setAttribute("name", "CPMixer" + "Embed"+_CPMixerCounter);
-    _DOMEmbedElement.setAttribute("enablejavascript", "true");
-    _DOMEmbedElement.setAttribute("postdomevents", "true");
-    _DOMEmbedElement.setAttribute("autoplay", "false");
-    return _DOMEmbedElement;
-}
-
+/*!
+    Returns a new CPSound object with the specified resource string.
+*/
 - (id)initWithResource:(CPString)resource
 {
     self = [super init];
@@ -217,126 +78,137 @@ var _CPMixerSounds = nil;
     {
         var aFileName = [[CPBundle mainBundle] pathForResource:resource];
         _name = nil;
-         
-        if (![self _configureQuickTimeWithFile:aFileName])
-        {
-            [self _configureAudioWithFile:aFileName];  // Quicktime not working. :(
-        }
+        
+        if (self = [[_CPAudioSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
+            return self;
+        if (self = [[_CPQuickTimeSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
+            return self;
     }
-    return self;
+    return nil;
 }
 
+/*!
+    Sets the delegate, which can listen to when we are done playing.
+*/
 - (void)setDelegate:(CPObject)delegate
 {
     _delegate = delegate;
 }
 
+/*!
+    Returns the delegate.
+*/
 - (void)delegate
 {
     return _delegate;
 }
 
-- (BOOL)isPlaying
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME)
-        return _Player.GetRate() != 0;
-    else if(_PlayerType == CP_SOUND_USE_AUDIO)
-        return !_Player.paused;
-}
-
-- (void)play
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME)
-        _Player.Play();
-    else if(_PlayerType == CP_SOUND_USE_AUDIO)
-        _Player.play();
-}
-
-- (void)pause
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME)
-        _Player.Stop();
-    else if(_PlayerType == CP_SOUND_USE_AUDIO)
-        _Player.pause();
-}
-
-- (void)stop
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
-        _Player.Rewind();
-        _Player.Stop();
-    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
-        _Player.pause();
-        _Player.currentTime = 0;
-    }
-}
-
-// Volume between 0 and 1
-- (var)volume
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
-        return _Player.GetVolume() / 256.0;
-    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
-        return _Player.volume;
-    }
-}
-
-// Set volume between 0 and 1
-- (void)setVolume:(var)volume
-{
-    if (volume > 1)
-        volume = 1;
-    else if (volume < 0)
-        volume = 0;
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
-        _Player.SetVolume(volume*256);
-    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
-        _Player.volume = volume;
-    }
-}
-
-- (var)duration
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
-        return _Player.GetDuration() / _Player.GetTimeScale();
-    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
-        return _Player.duration;
-    }
-}
-
-- (BOOL)loops()
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
-        return _Player.GetIsLooping() != 0;
-    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
-        return _Player.loop == nil;
-    }
-}
-
-- (void)setLoops:(BOOL)loops
-{
-    if (_PlayerType == CP_SOUND_USE_EMBED_QUICKTIME || _PlayerType == CP_SOUND_USE_OBJECT_QUICKTIME){
-        _Player.SetIsLooping(loops?1:0);
-    } else if (_PlayerType == CP_SOUND_USE_AUDIO){
-        _Player.loop = loops;
-    }
-}
-
-// Delegate method
-- (void)sound:(CPSound)sound didFinishPlaying:(BOOL)finishedPlaying
-{
-    
-}
-
+/*!
+    Sets the name of the sound, so that it can be created with the soundNamed: class method.
+*/
 - (void)setName:(CPString)aName
 {
     [_CPMixerSounds setObject:self forKey:aName];
     _name = aName;
 }
 
+/*!
+    Returns the name of the receiver if it got one, nil otherwise.
+*/
 - (CPString)name
 {
     return _name;
 }
 
+/*!
+    Returns YES if the audio is playing, NO otherwise.
+*/
+- (BOOL)isPlaying
+{
+}
+
+/*!
+    Starts playing at the current position
+*/
+- (void)play
+{
+}
+
+/*!
+    Resumes playing. Returns NO if we were already playing, YES otherwise.
+*/
+- (BOOL)resume
+{
+    var playing = [self isPlaying];
+    [self play];
+    return !playing;
+}
+
+/*!
+    Pauses playback.
+*/
+- (void)pause
+{
+}
+
+/*!
+    Stops playback and goes back to the beginning.
+*/
+- (void)stop
+{
+}
+
+/*!
+    Returns the current volume between 0 and 1.
+*/
+- (var)volume
+{
+}
+
+
+/*!
+    Sets the volume between 0 and 1.
+*/
+- (void)setVolume:(var)volume
+{
+}
+
+/*!
+    Returns the duration of the sound in seconds.
+*/
+- (var)duration
+{
+}
+
+/*!
+    Returns YES if the audio is looping, NO otherwise.
+*/
+- (BOOL)loops()
+{
+}
+
+/*!
+    Sets whether we are looping or not.
+*/
+- (void)setLoops:(BOOL)loops
+{
+}
+
+/*!
+    Returns the current time in seconds.
+*/
+- (var)currentTime
+{
+}
+
+/*!
+    Sets the current time in seconds.
+*/
+- (void)setCurrentTime:(var)time
+{
+}
+
 @end
+
+@import "_CPQuickTimeSound.j"
+@import "_CPAudioSound.j"

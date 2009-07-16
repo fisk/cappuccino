@@ -61,6 +61,7 @@ var _CPMixerCounter = 0;
     _DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
     _DOMObjectElement.setAttribute("width", "0");
     _DOMObjectElement.setAttribute("height", "0");
+    _DOMObjectElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     
     _DOMParamElement.setAttribute("src", aFileName);
     _DOMObjectElement.appendChild(_DOMParamElement);
@@ -71,16 +72,10 @@ var _CPMixerCounter = 0;
     _DOMParamElement.setAttribute("autoplay", "false");
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("hidden", "true");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
     _DOMParamElement.setAttribute("enablejavascript", "true");
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
     _DOMParamElement.setAttribute("postdomevents", "true");
-    _DOMObjectElement.appendChild(_DOMParamElement);
-    _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     _DOMObjectElement.appendChild(_DOMParamElement);
     
     return _DOMObjectElement;
@@ -94,7 +89,7 @@ var _CPMixerCounter = 0;
     _DOMEmbedElement.setAttribute("width", "0");
     _DOMEmbedElement.setAttribute("height", "0");
     _DOMEmbedElement.setAttribute("pluginspage", "http://www.apple.com/quicktime/download/");
-    _DOMEmbedElement.setAttribute("name", "CPMixer" + "Embed" + _CPMixerCounter);
+    _DOMEmbedElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     _DOMEmbedElement.setAttribute("enablejavascript", "true");
     _DOMEmbedElement.setAttribute("postdomevents", "true");
     _DOMEmbedElement.setAttribute("autoplay", "false");
@@ -116,15 +111,9 @@ var _CPMixerCounter = 0;
         _DOMObjectElement.appendChild(_DOMEmbedElement);
         mixerDiv.appendChild(_DOMObjectElement);
     
-        _Player = document.getElementsByName("CPMixer" + "Embed" + _CPMixerCounter);
-        if (_Player.length == 0)
-        {
-            _Player = document.getElementById("CPMixer" + "Object" + _CPMixerCounter);
-            if(!_Player)
-                return nil;
-        } else {
-            _Player = _Player[0];
-        }
+        _Player = document.getElementById("CPMixer" + "Object" + _CPMixerCounter);
+        if(!_Player)
+            return nil;
         
         if (document.addEventListener)
         {
@@ -139,6 +128,8 @@ var _CPMixerCounter = 0;
             });
         }
         
+        [self setLoops:NO];
+        
         _CPMixerCounter++;
     }
     return self;
@@ -152,7 +143,7 @@ var _CPMixerCounter = 0;
 - (void)play
 {
     var status = _Player.GetPluginStatus();
-    if ([status isEqualToString:@"Complete"])
+    if (status == @"Complete")
         _Player.Play();
     else
         _Player.SetAutoPlay(true);

@@ -130,14 +130,16 @@ var _CPMixerCounter = 0;
         {
             _Player.addEventListener('qt_ended', function () {
                 if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-                [_delegate sound:self didFinishPlaying:YES];
+                    [_delegate sound:self didFinishPlaying:YES];
             } , false);
-        } else {
+        } else {  // Internet Explorer
             _Player.attachEvent('onqt_ended', function () {
                 if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-                [_delegate sound:self didFinishPlaying:YES];
-            });  // Internet Explorer
+                    [_delegate sound:self didFinishPlaying:YES];
+            });
         }
+        
+        _CPMixerCounter++;
     }
     return self;
 }
@@ -149,18 +151,24 @@ var _CPMixerCounter = 0;
 
 - (void)play
 {
-    _Player.Play();
+    var status = _Player.GetPluginStatus();
+    if ([status isEqualToString:@"Complete"])
+        _Player.Play();
+    else
+        _Player.SetAutoPlay(true);
 }
 
 - (void)pause
 {
     _Player.Stop();
+    _wantsPlay = NO;
 }
 
 - (void)stop
 {
     _Player.Rewind();
     _Player.Stop();
+    _wantsPlay = NO;
 }
 
 // Volume between 0 and 1

@@ -37,6 +37,7 @@ var _CPMixerCounter = 0;
     _DOMAudioElement.setAttribute("autoplay", "false");
     _DOMAudioElement.setAttribute("autostart", "0");
     _DOMAudioElement.setAttribute("controls", "false");
+    _DOMAudioElement.setAttribute("autobuffer", "true");
     _DOMAudioElement.setAttribute("loop", "false");
     _DOMAudioElement.setAttribute("id", "CPMixer" + "Audio" + _CPMixerCounter);
     
@@ -68,6 +69,8 @@ var _CPMixerCounter = 0;
                 [_delegate sound:self didFinishPlaying:YES];
             });  // Internet Explorer
         }
+        
+        _CPMixerCounter++;
     }
     return self;
 }
@@ -79,7 +82,11 @@ var _CPMixerCounter = 0;
 
 - (void)play
 {
-    _Player.play();
+    var status = _Player.readyState;
+    if(status == 4)
+        _Player.play();
+    else
+        _Player.autoplay = true;
 }
 
 - (void)pause

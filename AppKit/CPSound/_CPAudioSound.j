@@ -50,7 +50,7 @@ var _CPMixerCounter = 0;
    
     if (self)  //TODO: We currently rely on quicktime, but other plugins could be used as well.
     {
-        if (navigator.userAgent.indexOf("Firefox")!=-1 && ![[aFileName lastPathComponent] isEqualToString:@"ogg"])
+        if (/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent) && ![[aFileName lastPathComponent] isEqualToString:@"ogg"])
             return nil;
         var _DOMAudioElement = [self _CreateDOMAudioElement:aFileName];
         mixerDiv.appendChild(_DOMAudioElement);
@@ -84,11 +84,15 @@ var _CPMixerCounter = 0;
 
 - (void)play
 {
-    var status = _Player.readyState;
-    if(status == 4)
-        _Player.play();
-    else
+    try{
+        var status = _Player.readyState;
+        if(status == 4)
+            _Player.play();
+        else
+            _Player.autoplay = true;
+    } catch(error) {
         _Player.autoplay = true;
+    }
 }
 
 - (void)pause

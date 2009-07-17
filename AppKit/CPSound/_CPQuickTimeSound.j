@@ -22,12 +22,14 @@
 
 
 @import "CPSound.j"
+@import <Foundation/CPArray.j>
 
 var _CPMixerCounter = 0;
 
 @implementation _CPQuickTimeSound : CPSound
 {
     DOMElement _Player;      // The DOM element that will be used and controlled
+    CPArray _UnhandledRequests;
 }
 
 - (BOOL)_haveQuickTime
@@ -59,9 +61,15 @@ var _CPMixerCounter = 0;
     
     _DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");
     _DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
-    _DOMObjectElement.setAttribute("width", "0");
-    _DOMObjectElement.setAttribute("height", "0");
-    _DOMObjectElement.setAttribute("type", "video/quicktime");
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+    {
+        _DOMObjectElement.setAttribute("width", "1");
+        _DOMObjectElement.setAttribute("height", "1");
+    } else {    // In firefox, non-zero sized elements are ignored, and JS won't work.
+        _DOMObjectElement.setAttribute("width", "0");
+        _DOMObjectElement.setAttribute("height", "0");
+    }
+    _DOMObjectElement.setAttribute("data", aFileName);
     _DOMObjectElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     
     _DOMParamElement.setAttribute("src", aFileName);
@@ -78,6 +86,12 @@ var _CPMixerCounter = 0;
     _DOMParamElement = document.createElement("param");
     _DOMParamElement.setAttribute("postdomevents", "true");
     _DOMObjectElement.appendChild(_DOMParamElement);
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent))) // If we hide this, firefox will ignore it and JS won't work.
+    {
+        _DOMParamElement = document.createElement("param");
+        _DOMParamElement.setAttribute("hidden", "true");
+        _DOMObjectElement.appendChild(_DOMParamElement);
+    }
     
     return _DOMObjectElement;
 }
@@ -87,15 +101,18 @@ var _CPMixerCounter = 0;
     var _DOMEmbedElement = document.createElement("embed");  // Embed-tag
     
     _DOMEmbedElement.setAttribute("src", aFileName);
-    _DOMEmbedElement.setAttribute("width", "100");
-    _DOMEmbedElement.setAttribute("height", "90");
+    _DOMEmbedElement.setAttribute("width", "1");
+    _DOMEmbedElement.setAttribute("height", "1");
     _DOMEmbedElement.setAttribute("pluginspage", "http://www.apple.com/quicktime/download/");
     _DOMEmbedElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
+    _DOMEmbedElement.setAttribute("name", "CPMixer" + "Embed" + _CPMixerCounter);
     _DOMEmbedElement.setAttribute("enablejavascript", "true");
     _DOMEmbedElement.setAttribute("postdomevents", "true");
-    _DOMEmbedElement.setAttribute("controller", "true");
+    _DOMEmbedElement.setAttribute("controller", "false");
     _DOMEmbedElement.setAttribute("autoplay", "false");
     _DOMEmbedElement.setAttribute("type", "video/quicktime");
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+        _DOMEmbedElement.setAttribute("hidden", "true");
     return _DOMEmbedElement;
 }
 
@@ -107,16 +124,24 @@ var _CPMixerCounter = 0;
     {
         if(![self _haveQuickTime])
             return nil;
+            
+        _UnhandledRequests = [[CPArray alloc] init];
         
         var _DOMObjectElement = [self _CreateDOMObjectElement:aFileName];
         var _DOMEmbedElement = [self _CreateDOMEmbedElement:aFileName];
     
         _DOMObjectElement.appendChild(_DOMEmbedElement);
         mixerDiv.appendChild(_DOMObjectElement);
-    
-        _Player = document.getElementById("CPMixer" + "Object" + _CPMixerCounter);
-        if(!_Player)
-            return nil;
+        
+        
+        _Player = document.getElementsByName("CPMixer" + "Embed" + _CPMixerCounter);
+        if (_Player.length != 0)
+            _Player = _Player[0];
+        else{
+            _Player = document.getElementById("CPMixer" + "Object" + _CPMixerCounter);
+            if(!_Player)
+                return nil;
+        }
         
         if (document.addEventListener)
         {
@@ -131,14 +156,38 @@ var _CPMixerCounter = 0;
             });
         }
         
-        if(!_Player.GetPluginStatus)
-            return nil;     // For some reason JavaScript won't work with quicktime and thus can't be used.
-        
-        [self setLoops:NO];
+        if (document.addEventListener)
+        {
+            _Player.addEventListener('qt_begin', function () {
+                for (var i = 0; i < [_UnhandledRequests count]; i++)
+                {
+                    if ([[_UnhandledRequests objectAtIndex:i] isEqualToString:@"play"])
+                    {
+                        [self play];
+                    }
+                }
+            } , false);
+        } else {  // Internet Explorer
+            _Player.attachEvent('onqt_begin', function () {
+                
+            });
+        }
         
         _CPMixerCounter++;
     }
     return self;
+}
+
+// Used to handle requests issued before addon was loaded.
+- (void)_handleUnhandledRequests
+{
+    for (var i = 0; i < [_UnhandledRequests count]; i++)
+    {
+        if ([[_UnhandledRequests objectAtIndex:i] isEqualToString:@"play"])
+        {
+            [self play];
+        }
+    }
 }
 
 - (BOOL)isPlaying
@@ -148,11 +197,15 @@ var _CPMixerCounter = 0;
 
 - (void)play
 {
-    var status = _Player.GetPluginStatus();
-    if (status == @"Complete")
-        _Player.Play();
-    else
-        _Player.SetAutoPlay(true);
+    try{
+        var status = _Player.GetPluginStatus();
+        if (status == @"Complete")
+            _Player.Play();
+        else
+            _Player.SetAutoPlay(true);
+    } catch (error) {   // Not done loading all the JS functionality or something.
+        [_UnhandledRequests insertObject:@"play" atIndex:[_UnhandledRequests count]];
+    }
 }
 
 - (void)pause

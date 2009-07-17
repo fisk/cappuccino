@@ -52,11 +52,7 @@ var _CPMixerSounds = nil;
 {
     var bridge = [CPDOMWindowBridge sharedDOMWindowBridge];
     var body = bridge._DOMBodyElement;
-    _CPMixerDiv = document.createElement("div");
-    body.appendChild(_CPMixerDiv);
-    _CPMixerDiv.style.width = "0px";
-    _CPMixerDiv.style.height = "0px";
-    _CPMixerSounds = [CPDictionary dictionary];
+    _CPMixerDiv = body;
 }
 
 /*!

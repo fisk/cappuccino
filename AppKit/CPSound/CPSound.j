@@ -78,11 +78,12 @@ var _CPMixerSounds = nil;
     {
         var aFileName = [[CPBundle mainBundle] pathForResource:resource];
         
-        if (self = [[_CPQuickTimeSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
+        if (self = [[_CPAudioSound alloc] initWithFile:aFileName mixer:_CPMixerDiv]){
             return self;
-        if (self = [[_CPAudioSound alloc] initWithFile:aFileName mixer:_CPMixerDiv])
+        }
+        if (self = [[_CPQuickTimeSound alloc] initWithFile:aFileName mixer:_CPMixerDiv]){
             return self;
-        
+        }
         _name = nil;
     }
     return nil;

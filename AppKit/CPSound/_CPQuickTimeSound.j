@@ -61,6 +61,7 @@ var _CPMixerCounter = 0;
     _DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
     _DOMObjectElement.setAttribute("width", "0");
     _DOMObjectElement.setAttribute("height", "0");
+    _DOMObjectElement.setAttribute("type", "video/quicktime");
     _DOMObjectElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     
     _DOMParamElement.setAttribute("src", aFileName);
@@ -86,13 +87,15 @@ var _CPMixerCounter = 0;
     var _DOMEmbedElement = document.createElement("embed");  // Embed-tag
     
     _DOMEmbedElement.setAttribute("src", aFileName);
-    _DOMEmbedElement.setAttribute("width", "0");
-    _DOMEmbedElement.setAttribute("height", "0");
+    _DOMEmbedElement.setAttribute("width", "100");
+    _DOMEmbedElement.setAttribute("height", "90");
     _DOMEmbedElement.setAttribute("pluginspage", "http://www.apple.com/quicktime/download/");
     _DOMEmbedElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     _DOMEmbedElement.setAttribute("enablejavascript", "true");
     _DOMEmbedElement.setAttribute("postdomevents", "true");
+    _DOMEmbedElement.setAttribute("controller", "true");
     _DOMEmbedElement.setAttribute("autoplay", "false");
+    _DOMEmbedElement.setAttribute("type", "video/quicktime");
     return _DOMEmbedElement;
 }
 
@@ -127,6 +130,9 @@ var _CPMixerCounter = 0;
                     [_delegate sound:self didFinishPlaying:YES];
             });
         }
+        
+        if(!_Player.GetPluginStatus)
+            return nil;     // For some reason JavaScript won't work with quicktime and thus can't be used.
         
         [self setLoops:NO];
         

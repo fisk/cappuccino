@@ -23,6 +23,7 @@
 
 @import "CPSound.j"
 @import <Foundation/CPArray.j>
+@import <Foundation/CPDictionary.j>
 
 var _CPMixerCounter = 0;
 
@@ -159,17 +160,11 @@ var _CPMixerCounter = 0;
         if (document.addEventListener)
         {
             _Player.addEventListener('qt_begin', function () {
-                for (var i = 0; i < [_UnhandledRequests count]; i++)
-                {
-                    if ([[_UnhandledRequests objectAtIndex:i] isEqualToString:@"play"])
-                    {
-                        [self play];
-                    }
-                }
+                [self _handleUnhandledRequests];
             } , false);
         } else {  // Internet Explorer
             _Player.attachEvent('onqt_begin', function () {
-                
+                [self _handleUnhandledRequests];
             });
         }
         
@@ -183,10 +178,19 @@ var _CPMixerCounter = 0;
 {
     for (var i = 0; i < [_UnhandledRequests count]; i++)
     {
-        if ([[_UnhandledRequests objectAtIndex:i] isEqualToString:@"play"])
-        {
+        var request = [_UnhandledRequests objectAtIndex:i];
+        if ([[request objectForKey:@"name"] isEqualToString:@"play"])
             [self play];
-        }
+        else if ([[request objectForKey:@"name"] isEqualToString:@"pause"])
+            [self pause];
+        else if ([[request objectForKey:@"name"] isEqualToString:@"stop"])
+            [self stop];
+        else if ([[request objectForKey:@"name"] isEqualToString:@"setVolume"])
+            [self setVolume:[request objectForKey:@"volume"]];
+        else if ([[request objectForKey:@"name"] isEqualToString:@"setLoops"])
+            [self setLoops:[request objectForKey:@"loops"]];
+        else if ([[request objectForKey:@"name"] isEqualToString:@"setCurrentTime"])
+            [self setCurrentTime:[request objectForKey:@"time"]];
     }
 }
 
@@ -204,21 +208,29 @@ var _CPMixerCounter = 0;
         else
             _Player.SetAutoPlay(true);
     } catch (error) {   // Not done loading all the JS functionality or something.
-        [_UnhandledRequests insertObject:@"play" atIndex:[_UnhandledRequests count]];
+        [_UnhandledRequests insertObject:[CPDictionary dictionaryWithObject:@"play" forKey:@"name"] atIndex:[_UnhandledRequests count]];
     }
 }
 
 - (void)pause
 {
-    _Player.Stop();
-    _wantsPlay = NO;
+    try{
+        _Player.Stop();
+        _wantsPlay = NO;
+    } catch (error) {
+        [_UnhandledRequests insertObject:[CPDictionary dictionaryWithObject:@"pause" forKey:@"name"] atIndex:[_UnhandledRequests count]];
+    }
 }
 
 - (void)stop
 {
-    _Player.Rewind();
-    _Player.Stop();
-    _wantsPlay = NO;
+    try{
+        _Player.Rewind();
+        _Player.Stop();
+        _wantsPlay = NO;
+    } catch (error) {
+        [_UnhandledRequests insertObject:[CPDictionary dictionaryWithObject:@"stop" forKey:@"name"] atIndex:[_UnhandledRequests count]];
+    }
 }
 
 // Volume between 0 and 1
@@ -230,11 +242,17 @@ var _CPMixerCounter = 0;
 // Set volume between 0 and 1
 - (void)setVolume:(var)volume
 {
-    if (volume > 1)
-        volume = 1;
-    else if (volume < 0)
-        volume = 0;
-    _Player.SetVolume(volume*256);
+    try{
+        if (volume > 1)
+            volume = 1;
+        else if (volume < 0)
+            volume = 0;
+        _Player.SetVolume(volume*256);
+    } catch (error) {
+        var request = [CPDictionary dictionaryWithObjects:@"setVolume" forKeys:@"name"];
+        [request setObject:volume forKey:@"volume"]
+        [_UnhandledRequests insertObject:request atIndex:[_UnhandledRequests count]];
+    }
 }
 
 - (var)duration
@@ -249,7 +267,13 @@ var _CPMixerCounter = 0;
 
 - (void)setLoops:(BOOL)loops
 {
-    _Player.SetIsLooping(loops?1:0);
+    try{
+        _Player.SetIsLooping(loops?1:0);
+    } catch (error) {
+        var request = [CPDictionary dictionaryWithObjects:@"setLoops" forKeys:@"name"];
+        [request setObject:loops forKey:@"loops"]
+        [_UnhandledRequests insertObject:request atIndex:[_UnhandledRequests count]];
+    }
 }
 
 - (var)currentTime
@@ -261,7 +285,13 @@ var _CPMixerCounter = 0;
 {
     if(time < 0)
         time = 0;
-    _Player.SetTime(time * _Player.GetTimeScale());
+    try {
+        _Player.SetTime(time * _Player.GetTimeScale());
+    } catch (error) {
+        var request = [CPDictionary dictionaryWithObjects:@"setCurrentTime" forKeys:@"name"];
+        [request setObject:time forKey:@"time"]
+        [_UnhandledRequests insertObject:request atIndex:[_UnhandledRequests count]];
+    }
 }
 
 @end

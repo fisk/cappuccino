@@ -204,12 +204,16 @@ var _CPMixerCounter = 0;
 
 - (BOOL)isPlaying
 {
-    return _Player.GetRate() != 0;
+    try{
+        return _Player.GetRate() != 0;
+    } catch (error) {
+        return NO;
+    }
 }
 
 - (void)play
 {
-    try{
+    try {
         var status = _Player.GetPluginStatus();
         if (status == @"Complete")
             _Player.Play();
@@ -222,7 +226,7 @@ var _CPMixerCounter = 0;
 
 - (void)pause
 {
-    try{
+    try {
         _Player.Stop();
         _wantsPlay = NO;
     } catch (error) {
@@ -232,7 +236,7 @@ var _CPMixerCounter = 0;
 
 - (void)stop
 {
-    try{
+    try {
         _Player.Rewind();
         _Player.Stop();
         _wantsPlay = NO;
@@ -244,13 +248,17 @@ var _CPMixerCounter = 0;
 // Volume between 0 and 1
 - (var)volume
 {
-    return _Player.GetVolume() / 256.0;
+    try {
+        return _Player.GetVolume() / 256.0;
+    } catch (error) {
+        return 1;
+    }
 }
 
 // Set volume between 0 and 1
 - (void)setVolume:(var)volume
 {
-    try{
+    try {
         if (volume > 1)
             volume = 1;
         else if (volume < 0)
@@ -265,12 +273,20 @@ var _CPMixerCounter = 0;
 
 - (var)duration
 {
-    return _Player.GetDuration() / _Player.GetTimeScale();
+    try {
+        return _Player.GetDuration() / _Player.GetTimeScale();
+    } catch (error) {
+        return -1;
+    }
 }
 
 - (BOOL)loops()
 {
-    return _Player.GetIsLooping() != 0;
+    try {
+        return _Player.GetIsLooping() != 0;
+    } catch (error) {
+        return NO;
+    }
 }
 
 - (void)setLoops:(BOOL)loops
@@ -286,7 +302,11 @@ var _CPMixerCounter = 0;
 
 - (var)currentTime
 {
-    return _Player.GetTime() / _Player.GetTimeScale();
+    try {
+        return _Player.GetTime() / _Player.GetTimeScale();
+    } catch (error) {
+        return 0;
+    }
 }
 
 - (void)setCurrentTime:(var)time

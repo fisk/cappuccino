@@ -25,6 +25,7 @@
 @import <Foundation/CPObject.j>
 @import <Foundation/CPString.j>
 @import <Foundation/CPDictionary.j>
+@import <Foundation/CPBundle.j>
 
 var _CPMixerDiv = nil;
 var _CPMixerSounds = nil;

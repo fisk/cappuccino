@@ -64,11 +64,11 @@ var _CPMixerCounter = 0;
     _DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
     if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
     {
-        _DOMObjectElement.setAttribute("width", "1");
-        _DOMObjectElement.setAttribute("height", "1");
-    } else {    // In firefox, non-zero sized elements are ignored, and JS won't work.
         _DOMObjectElement.setAttribute("width", "0");
         _DOMObjectElement.setAttribute("height", "0");
+    } else {    // In firefox, non-zero sized elements are ignored, and JS won't work.
+        _DOMObjectElement.setAttribute("width", "1");
+        _DOMObjectElement.setAttribute("height", "1");
     }
     _DOMObjectElement.setAttribute("data", aFileName);
     _DOMObjectElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
@@ -102,8 +102,14 @@ var _CPMixerCounter = 0;
     var _DOMEmbedElement = document.createElement("embed");  // Embed-tag
     
     _DOMEmbedElement.setAttribute("src", aFileName);
-    _DOMEmbedElement.setAttribute("width", "1");
-    _DOMEmbedElement.setAttribute("height", "1");
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+    {
+        _DOMEmbedElement.setAttribute("width", "0");
+        _DOMEmbedElement.setAttribute("height", "0");
+    } else {    // In firefox, non-zero sized elements are ignored, and JS won't work.
+        _DOMEmbedElement.setAttribute("width", "1");
+        _DOMEmbedElement.setAttribute("height", "1");
+    }
     _DOMEmbedElement.setAttribute("pluginspage", "http://www.apple.com/quicktime/download/");
     _DOMEmbedElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
     _DOMEmbedElement.setAttribute("name", "CPMixer" + "Embed" + _CPMixerCounter);
@@ -112,8 +118,9 @@ var _CPMixerCounter = 0;
     _DOMEmbedElement.setAttribute("controller", "false");
     _DOMEmbedElement.setAttribute("autoplay", "false");
     _DOMEmbedElement.setAttribute("type", "video/quicktime");
-    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent))){
         _DOMEmbedElement.setAttribute("hidden", "true");
+    }
     return _DOMEmbedElement;
 }
 
@@ -179,18 +186,19 @@ var _CPMixerCounter = 0;
     for (var i = 0; i < [_UnhandledRequests count]; i++)
     {
         var request = [_UnhandledRequests objectAtIndex:i];
-        if ([[request objectForKey:@"name"] isEqualToString:@"play"])
+        if ([[request objectForKey:@"name"] isEqualToString:@"play"]){
             [self play];
-        else if ([[request objectForKey:@"name"] isEqualToString:@"pause"])
+        } else if ([[request objectForKey:@"name"] isEqualToString:@"pause"]){
             [self pause];
-        else if ([[request objectForKey:@"name"] isEqualToString:@"stop"])
+        } else if ([[request objectForKey:@"name"] isEqualToString:@"stop"]){
             [self stop];
-        else if ([[request objectForKey:@"name"] isEqualToString:@"setVolume"])
+        } else if ([[request objectForKey:@"name"] isEqualToString:@"setVolume"]){
             [self setVolume:[request objectForKey:@"volume"]];
-        else if ([[request objectForKey:@"name"] isEqualToString:@"setLoops"])
+        } else if ([[request objectForKey:@"name"] isEqualToString:@"setLoops"]){
             [self setLoops:[request objectForKey:@"loops"]];
-        else if ([[request objectForKey:@"name"] isEqualToString:@"setCurrentTime"])
+        } else if ([[request objectForKey:@"name"] isEqualToString:@"setCurrentTime"]){
             [self setCurrentTime:[request objectForKey:@"time"]];
+        }
     }
 }
 

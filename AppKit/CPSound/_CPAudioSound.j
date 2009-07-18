@@ -40,6 +40,8 @@ var _CPMixerCounter = 0;
     _DOMAudioElement.setAttribute("autobuffer", "true");
     _DOMAudioElement.setAttribute("loop", "false");
     _DOMAudioElement.setAttribute("id", "CPMixer" + "Audio" + _CPMixerCounter);
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+        _DOMAudioElement.style.display = "none";
     
     return _DOMAudioElement;
 }

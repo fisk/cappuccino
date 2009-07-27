@@ -209,6 +209,11 @@ var DOMElementPrototype         = nil,
     CachedNotificationCenter = [CPNotificationCenter defaultCenter];
 }
 
++ (CPSet)keyPathsForValuesAffectingFrame
+{
+    return [CPSet setWithObjects:@"frameOrigin", @"frameSize"];
+}
+
 - (id)init
 {
     return [self initWithFrame:CGRectMakeZero()];
@@ -623,6 +628,16 @@ var DOMElementPrototype         = nil,
     return _CGRectMakeCopy(_frame);
 }
 
+- (CGPoint)frameOrigin
+{
+    return _CGPointMakeCopy(_frame.origin);
+}
+
+- (CGSize)frameSize
+{
+    return _CGSizeMakeCopy(_frame.size);
+}
+
 /*!
     Moves the center of the receiver's frame to the provided point. The point is defined in the superview's coordinate system. 
     The method posts a CPViewFrameDidChangeNotification to the default notification center if the receiver 
@@ -955,7 +970,7 @@ var DOMElementPrototype         = nil,
 {
     _fullScreenModeState = _CPViewFullScreenModeStateMake(self);
     
-    var fullScreenWindow = [[CPWindow alloc] initWithContentRect:[[CPDOMWindowBridge sharedDOMWindowBridge] contentBounds] styleMask:CPBorderlessWindowMask];
+    var fullScreenWindow = [[CPWindow alloc] initWithContentRect:[[CPPlatformWindow primaryPlatformWindow] contentBounds] styleMask:CPBorderlessWindowMask];
     
     [fullScreenWindow setLevel:CPScreenSaverWindowLevel];
     [fullScreenWindow setAutoresizingMask:CPViewWidthSizable | CPViewHeightSizable];

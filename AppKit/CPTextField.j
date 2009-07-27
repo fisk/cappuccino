@@ -570,6 +570,15 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
     element.style.font = [[self currentValueForThemeAttribute:@"font"] cssString];
     element.style.zIndex = 1000;
 
+    switch ([self alignment])
+    {
+        case CPCenterTextAlignment: element.style.textAlign = "center";
+                                    break;
+        case CPRightTextAlignment:  element.style.textAlign = "right";
+                                    break;
+        default:                    element.style.textAlign = "left";
+    }
+
     var contentRect = [self contentRectForBounds:[self bounds]];
 
     element.style.top = _CGRectGetMinY(contentRect) + "px";
@@ -588,7 +597,7 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
     //post CPControlTextDidBeginEditingNotification
     [self textDidBeginEditing:[CPNotification notificationWithName:CPControlTextDidBeginEditingNotification object:self userInfo:nil]];
     
-    [[CPDOMWindowBridge sharedDOMWindowBridge] _propagateCurrentDOMEvent:YES];
+    [[[self window] platformWindow] _propagateCurrentDOMEvent:YES];
     
     CPTextFieldInputIsActive = YES;
 
@@ -763,8 +772,8 @@ CPTextFieldStatePlaceholder = CPThemeState("placeholder");
 #if PLATFORM(DOM)
     var element = [self _inputElement];
     
-    if (element.parentNode == _DOMElement && ([self isEditable] || [self isSelectable]))
-        element.select();
+    if (element.parentNode === _DOMElement && ([self isEditable] || [self isSelectable]))
+        window.setTimeout(function() { element.select(); }, 0);
 #endif
 }
 

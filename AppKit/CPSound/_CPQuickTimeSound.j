@@ -31,13 +31,14 @@ var _CPMixerCounter = 0;
 {
     DOMElement _Player;      // The DOM element that will be used and controlled
     CPArray _UnhandledRequests;
+    CPString _file;
 }
 
 - (BOOL)_haveQuickTime
 {
     var haveqt = NO;
     if (navigator.plugins) {
-        for (i=0; i < navigator.plugins.length; i++ ) {
+        for (var i=0; i < navigator.plugins.length; i++ ) {
             if (navigator.plugins[i].name.indexOf("QuickTime") >= 0)
             {
                 haveqt = YES;
@@ -52,17 +53,45 @@ var _CPMixerCounter = 0;
         haveqt = YES;
     }
     
+    if (!haveqt && [self _isInternetExplorer])
+    {
+        var scriptElement = document.createElement("script");
+        scriptElement.setAttribute("language", "VBscript");
+        document.getElementsByTagName("head")[0].appendChild(scriptElement);
+        scriptElement.text = 'Function detectQuickTimeVB()\n'
+            + '  on error resume next\n'
+            + '  detectQuickTimeVB = False\n'
+            + '  hasQuickTimeChecker = False\n'
+            + '  Set hasQuickTimeChecker = CreateObject("QuickTimeCheckObject.QuickTimeCheck.1")\n'
+            + '  If IsObject(hasQuickTimeChecker) Then\n'
+            + '    If hasQuickTimeChecker.IsQuickTimeAvailable(0) Then\n'
+            + '      detectQuickTimeVB = True\n'
+            + '    End If\n'
+            + '  End If\n'
+            + 'End Function\n';
+        haveqt = detectQuickTimeVB();
+    }
+    
     return haveqt;
+}
+
+- (BOOL)_isInternetExplorer
+{
+    var ua = navigator.userAgent.toLowerCase();
+    var msie = /msie/.test(ua) && !/opera/.test(ua);
+
+    return msie;
 }
 
 - (id)_CreateDOMObjectElement:(NSString)aFileName
 {
+    var qtEventID = "qt_event_source";
     var _DOMObjectElement = document.createElement("object");
     var _DOMParamElement = document.createElement("param");
     
     _DOMObjectElement.setAttribute("classid", "clsid:02BF25D5-8C17-4B23-BC80-D3488ABDDC6B");
     _DOMObjectElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
-    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent) || [self _isInternetExplorer]))
     {
         _DOMObjectElement.setAttribute("width", "0");
         _DOMObjectElement.setAttribute("height", "0");
@@ -72,25 +101,34 @@ var _CPMixerCounter = 0;
     }
     _DOMObjectElement.setAttribute("data", aFileName);
     _DOMObjectElement.setAttribute("id", "CPMixer" + "Object" + _CPMixerCounter);
-    
-    _DOMParamElement.setAttribute("src", aFileName);
+    if ([self _isInternetExplorer])
+    {
+        _DOMObjectElement.style.behavior = "url(#" + qtEventID + ")";
+    }
+    _DOMParamElement.setAttribute("name", "src");
+    _DOMParamElement.setAttribute("value", aFileName);
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("controller", "false");
+    _DOMParamElement.setAttribute("name", "controller");
+    _DOMParamElement.setAttribute("value", "false");
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("autoplay", "false");
+    _DOMParamElement.setAttribute("name", "autoplay");
+    _DOMParamElement.setAttribute("value", "false");
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("enablejavascript", "true");
+    _DOMParamElement.setAttribute("name", "enablejavascript");
+    _DOMParamElement.setAttribute("value", "true");
     _DOMObjectElement.appendChild(_DOMParamElement);
     _DOMParamElement = document.createElement("param");
-    _DOMParamElement.setAttribute("postdomevents", "true");
+    _DOMParamElement.setAttribute("name", "postdomevents");
+    _DOMParamElement.setAttribute("value", "true");
     _DOMObjectElement.appendChild(_DOMParamElement);
     if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent))) // If we hide this, firefox will ignore it and JS won't work.
     {
         _DOMParamElement = document.createElement("param");
-        _DOMParamElement.setAttribute("hidden", "true");
+        _DOMParamElement.setAttribute("name", "hidden");
+        _DOMParamElement.setAttribute("value", "true");
         _DOMObjectElement.appendChild(_DOMParamElement);
     }
     
@@ -124,6 +162,19 @@ var _CPMixerCounter = 0;
     return _DOMEmbedElement;
 }
 
+- (void)_CreateEventController
+{
+    var qtEventID = "qt_event_source";
+    if (!document.getElementById(qtEventID))
+    {
+        var _DOMEventElement = document.createElement("object");
+        _DOMEventElement.setAttribute("id", qtEventID);
+        _DOMEventElement.setAttribute("classid", "clsid:CB927D12-4FF7-4a9e-A169-56E4B8A75598");
+        _DOMEventElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
+        document.getElementsByTagName("head")[0].appendChild(_DOMEventElement);
+    }
+}
+
 - (id)initWithFile:(CPString)aFileName mixer:(DOMElement)mixerDiv
 {
     self = [super init];
@@ -132,15 +183,23 @@ var _CPMixerCounter = 0;
     {
         if(![self _haveQuickTime])
             return nil;
-            
+        _file = aFileName;
         _UnhandledRequests = [[CPArray alloc] init];
         
         var _DOMObjectElement = [self _CreateDOMObjectElement:aFileName];
-        var _DOMEmbedElement = [self _CreateDOMEmbedElement:aFileName];
-    
-        _DOMObjectElement.appendChild(_DOMEmbedElement);
-        mixerDiv.appendChild(_DOMObjectElement);
+        var _DOMEmbedElement = nil;
+        if (![self _isInternetExplorer])
+            _DOMEmbedElement = [self _CreateDOMEmbedElement:aFileName];
+        var _DOMEventController;
         
+        if ([self _isInternetExplorer])
+        {
+            var _DOMEventController = [self _CreateEventController];
+        } else {
+            _DOMObjectElement.appendChild(_DOMEmbedElement);
+        }
+        
+        mixerDiv.appendChild(_DOMObjectElement);
         
         _Player = document.getElementsByName("CPMixer" + "Embed" + _CPMixerCounter);
         if (_Player.length != 0)
@@ -211,8 +270,33 @@ var _CPMixerCounter = 0;
     }
 }
 
+/**
+ * Enabling DOM events seem to be possible only after the addon has loaded in IE
+ * and that is exactly what the events are used for; telling when the addon has
+ * loaded. Also the URL has to be set again when the addon has loaded (only in IE)
+**/
+- (void)_uglyInternetExplorerHack
+{
+    try {
+        if ([self _isInternetExplorer] && (!_Player.GetURL() || [_Player.GetURL() isEqual:""]))
+        {
+            _Player.SetResetPropertiesOnReload(NO);
+            _Player.SetURL(location.protocol + "//" + document.domain + "/" + _file);
+            registerDomEvents(_Player);
+            _Player.attachEvent('onqt_ended', function () {
+                if(_delegate != nil && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
+                    [_delegate sound:self didFinishPlaying:YES];
+            });
+            _Player.attachEvent('onqt_begin', function () {
+                [self _handleUnhandledRequests];
+            });
+        }
+    } catch (error) {}
+}
+
 - (void)play
 {
+    [self _uglyInternetExplorerHack];
     try {
         var status = _Player.GetPluginStatus();
         if (status == @"Complete")
@@ -226,6 +310,7 @@ var _CPMixerCounter = 0;
 
 - (void)pause
 {
+    [self _uglyInternetExplorerHack];
     try {
         _Player.Stop();
         _wantsPlay = NO;
@@ -236,6 +321,7 @@ var _CPMixerCounter = 0;
 
 - (void)stop
 {
+    [self _uglyInternetExplorerHack];
     try {
         _Player.Rewind();
         _Player.Stop();
@@ -248,6 +334,7 @@ var _CPMixerCounter = 0;
 // Volume between 0 and 1
 - (var)volume
 {
+    [self _uglyInternetExplorerHack];
     try {
         return _Player.GetVolume() / 256.0;
     } catch (error) {
@@ -258,6 +345,7 @@ var _CPMixerCounter = 0;
 // Set volume between 0 and 1
 - (void)setVolume:(var)volume
 {
+    [self _uglyInternetExplorerHack];
     try {
         if (volume > 1)
             volume = 1;
@@ -273,6 +361,7 @@ var _CPMixerCounter = 0;
 
 - (var)duration
 {
+    [self _uglyInternetExplorerHack];
     try {
         return _Player.GetDuration() / _Player.GetTimeScale();
     } catch (error) {
@@ -282,6 +371,7 @@ var _CPMixerCounter = 0;
 
 - (BOOL)loops()
 {
+    [self _uglyInternetExplorerHack];
     try {
         return _Player.GetIsLooping() != 0;
     } catch (error) {
@@ -291,6 +381,7 @@ var _CPMixerCounter = 0;
 
 - (void)setLoops:(BOOL)loops
 {
+    [self _uglyInternetExplorerHack];
     try{
         _Player.SetIsLooping(loops?1:0);
     } catch (error) {
@@ -302,6 +393,7 @@ var _CPMixerCounter = 0;
 
 - (var)currentTime
 {
+    [self _uglyInternetExplorerHack];
     try {
         return _Player.GetTime() / _Player.GetTimeScale();
     } catch (error) {
@@ -311,6 +403,7 @@ var _CPMixerCounter = 0;
 
 - (void)setCurrentTime:(var)time
 {
+    [self _uglyInternetExplorerHack];
     if(time < 0)
         time = 0;
     try {

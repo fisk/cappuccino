@@ -30,6 +30,14 @@ var _CPMixerCounter = 0;
     DOMElement _Player;      // The DOM element that will be used and controlled
 }
 
+- (BOOL)_isInternetExplorer
+{
+    var ua = navigator.userAgent.toLowerCase();
+    var msie = /msie/.test(ua) && !/opera/.test(ua);
+
+    return msie;
+}
+
 - (BOOL)_CreateDOMAudioElement:(NSString)aFileName
 {
     var _DOMAudioElement = document.createElement("audio");
@@ -40,7 +48,7 @@ var _CPMixerCounter = 0;
     _DOMAudioElement.setAttribute("autobuffer", "true");
     _DOMAudioElement.setAttribute("loop", "false");
     _DOMAudioElement.setAttribute("id", "CPMixer" + "Audio" + _CPMixerCounter);
-   // if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
+    if (!(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)))
         _DOMAudioElement.style.display = "none";
     
     return _DOMAudioElement;
@@ -52,6 +60,8 @@ var _CPMixerCounter = 0;
    
     if (self)  //TODO: We currently rely on quicktime, but other plugins could be used as well.
     {
+        if ([self _isInternetExplorer])
+            return nil;
         if (/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent) && ![[aFileName pathExtension] isEqualToString:@"ogg"])
             return nil;
         var _DOMAudioElement = [self _CreateDOMAudioElement:aFileName];

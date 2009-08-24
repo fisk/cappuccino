@@ -1,15 +1,20 @@
 #!/usr/bin/env narwhal
 
-var objjc = require("objj/objjc"),
-    File = require("file");
+var objj = require("objj/objj"),
+    File = require("file"),
+    os = require("os");
 
-with (objjc)
+require("objj/regexp-rhino-patch");
+
+with (objj)
 {
 
 importPackage(java.lang);
 
 importClass(java.io.BufferedReader);
 
+var SHRINKSAFE_PATH = File.join(OBJJ_HOME, "shrinksafe", "shrinksafe.jar"),
+    RHINO_PATH = File.join(OBJJ_HOME, "shrinksafe", "js.jar")
 
 OBJJ_PREPROCESSOR_PREPROCESS    = 1 << 10;
 OBJJ_PREPROCESSOR_COMPRESS      = 1 << 11;
@@ -53,7 +58,7 @@ function compress(/*String*/ aCode, /*Object*/ flags, /*File*/ tmpFile)
 {
     File.write(tmpFile, aCode, { charset:"UTF-8" });
 
-    return exec(["java", "-Dfile.encoding=UTF-8", "-classpath", OBJJ_HOME + "/lib/js.jar" + ":" + OBJJ_HOME + "/lib/shrinksafe.jar", "org.dojotoolkit.shrinksafe.Main", tmpFile.getCanonicalPath()]);
+    return exec(["java", "-Dfile.encoding=UTF-8", "-classpath", [RHINO_PATH, SHRINKSAFE_PATH].join(":"), "org.dojotoolkit.shrinksafe.Main", tmpFile.getCanonicalPath()]);
 }
 
 //#define SET_CONTEXT(aFragment, aContext) aFragment.context = aContext
@@ -71,7 +76,7 @@ function GET_PATH(aFragment) { return aFragment.info; }
 //#define GET_BUNDLE(aFragment) aFragment.bundle
 //#define SET_BUNDLE(aFragment, aBundle) aFragment.bundle = aBundle
 
-//#define GET_FILE(aFragment) aFragment.file
+function GET_FILE(aFragment) { return aFragment.file; }
 //#define SET_FILE(aFragment, aFile) aFragment.file = aFile
 
 function IS_FILE(aFragment) { return (aFragment.type & FRAGMENT_FILE); }
@@ -135,15 +140,14 @@ function preprocess(aFilePath, outFilePath, gccArgs, flags)
                 }
                 catch (e)
                 {
-                    var lines = e.fragment.info.split("\n"),
+                    var lines = code.split("\n"),
                         PAD = 3;
                         
-                    System.out.println(
-                            "Syntax error in "+e.fragment.file.path+
+                    print("Syntax error in "+GET_FILE(fragment).path+
                             " on preprocessed line number "+e.lineNumber+"\n"+
-                            "\t"+lines.slice(e.lineNumber-1-PAD<0 ? 0 : e.lineNumber-1-PAD, e.lineNumber+PAD).join("\n\t"));
+                            "\t"+lines.slice(Math.max(0, e.lineNumber - 1 - PAD), e.lineNumber+PAD).join("\n\t"));
                         
-                    System.exit(1);
+                    os.exit(1);
                 }
             }
             

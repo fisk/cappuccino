@@ -26,7 +26,8 @@
 @import <Foundation/CPKeyedArchiver.j>
 @import <Foundation/CPKeyedUnarchiver.j>
 
-@import <AppKit/CPView.j>
+@import "CPView.j"
+@import "CPCollectionViewItem.j"
 
 
 /*! 
@@ -61,6 +62,7 @@
     @param indices the indices to obtain drag types
     @return an array of drag types (CPString)
 */
+
 @implementation CPCollectionView : CPView
 {
     CPArray                 _content;
@@ -76,7 +78,9 @@
     
     CGSize                  _minItemSize;
     CGSize                  _maxItemSize;
-    
+
+    CPArray                 _backgroundColors;
+
     float                   _tileWidth;
     
     BOOL                    _isSelectable;
@@ -111,7 +115,9 @@
         _itemSize = CGSizeMakeZero();
         _minItemSize = CGSizeMakeZero();
         _maxItemSize = CGSizeMakeZero();
-        
+
+        [self setBackgroundColors:nil];
+
         _verticalMargin = 5.0;
         _tileWidth = -1.0;
         
@@ -129,10 +135,11 @@
 */
 - (void)setItemPrototype:(CPCollectionViewItem)anItem
 {
-    _itemData = [CPKeyedArchiver archivedDataWithRootObject:anItem];
-    _itemForDragging = anItem//[CPKeyedUnarchiver unarchiveObjectWithData:_itemData];
+    _cachedItems = [];
+    _itemData = nil;
+    _itemForDragging = anItem;//[CPKeyedUnarchiver unarchiveObjectWithData:_itemData];
     _itemPrototype = anItem;
-    
+
     [self reloadContent];
 }
 
@@ -151,11 +158,18 @@
 - (CPCollectionViewItem)newItemForRepresentedObject:(id)anObject
 {
     var item = nil;
-    
+
     if (_cachedItems.length)
         item = _cachedItems.pop();
+
     else
+    {
+        if (!_itemData)
+            if (_itemPrototype)
+                _itemData = [CPKeyedArchiver archivedDataWithRootObject:_itemPrototype];
+
         item = [CPKeyedUnarchiver unarchiveObjectWithData:_itemData];
+    }
 
     [item setRepresentedObject:anObject];
     [[item view] setFrameSize:_itemSize];
@@ -324,13 +338,13 @@
     
     _items = [];
 
-    if (!_itemData || !_content)
+    if (!_itemPrototype || !_content)
         return;
-    
+
     var index = 0;
-    
+
     count = _content.length;
-        
+
     for (; index < count; ++index)
     {
         _items.push([self newItemForRepresentedObject:_content[index]]);
@@ -522,6 +536,30 @@
     return _maxItemSize;
 }
 
+- (void)setBackgroundColors:(CPArray)backgroundColors
+{
+    if (_backgroundColors === backgroundColors)
+        return;
+
+    _backgroundColors = backgroundColors;
+
+    if (!_backgroundColors)
+        _backgroundColors = [CPColor whiteColor];
+
+    if ([_backgroundColors count] === 1)
+        [self setBackgroundColor:_backgroundColors[0]];
+
+    else
+        [self setBackgroundColor:nil];
+
+    [self setNeedsDisplay:YES];
+}
+
+- (CPArray)backgroundColors
+{
+    return _backgroundColors;
+}
+
 - (void)mouseUp:(CPEvent)anEvent
 {
     if ([_selectionIndexes count] && [anEvent clickCount] == 2 && [_delegate respondsToSelector:@selector(collectionView:didDoubleClickOnItemAtIndex:)])
@@ -632,98 +670,10 @@
 
 @end
 
-/*!
-    Represents an object inside a CPCollectionView.
-*/
-@implementation CPCollectionViewItem : CPObject
-{
-    id      _representedObject;
-    
-    CPView  _view;
-    
-    BOOL    _isSelected;
-}
-
-// Setting the Represented Object
-/*!
-    Sets the object to be represented by this item.
-    @param anObject the object to be represented
-*/
-- (void)setRepresentedObject:(id)anObject
-{
-    if (_representedObject == anObject)
-        return;
-    
-    _representedObject = anObject;
-    
-    // FIXME: This should be set up by bindings
-    [_view setRepresentedObject:anObject];
-}
-
-/*!
-    Returns the object represented by this view item
-*/
-- (id)representedObject
-{
-    return _representedObject;
-}
-
-// Modifying the View
-/*!
-    Sets the view that is used represent this object.
-    @param aView the view used to represent this object
-*/
-- (void)setView:(CPView)aView
-{
-    _view = aView;
-}
-
-/*!
-    Returns the view that represents this object.
-*/
-- (CPView)view
-{
-    return _view;
-}
-
-// Modifying the Selection
-/*!
-    Sets whether this view item should be selected.
-    @param shouldBeSelected \c YES makes the item selected. \c NO deselects it.
-*/
-- (void)setSelected:(BOOL)shouldBeSelected
-{
-    if (_isSelected == shouldBeSelected)
-        return;
-    
-    _isSelected = shouldBeSelected;
-    
-    // FIXME: This should be set up by bindings
-    [_view setSelected:_isSelected];
-}
-
-/*!
-    Returns \c YES if the item is currently selected. \c NO if the item is not selected.
-*/
-- (BOOL)isSelected
-{
-    return _isSelected;
-}
-
-// Parent Collection View
-/*!
-    Returns the collection view of which this item is a part.
-*/
-- (CPCollectionView)collectionView
-{
-    return [_view superview];
-}
-
-@end
-
 var CPCollectionViewMinItemSizeKey      = @"CPCollectionViewMinItemSizeKey",
     CPCollectionViewMaxItemSizeKey      = @"CPCollectionViewMaxItemSizeKey",
-    CPCollectionViewVerticalMarginKey   = @"CPCollectionViewVerticalMarginKey";
+    CPCollectionViewVerticalMarginKey   = @"CPCollectionViewVerticalMarginKey",
+    CPCollectionViewBackgroundColorsKey = @"CPCollectionViewBackgroundColorsKey";
 
 
 @implementation CPCollectionView (CPCoding)
@@ -744,6 +694,8 @@ var CPCollectionViewMinItemSizeKey      = @"CPCollectionViewMinItemSizeKey",
         _minItemSize = [aCoder decodeSizeForKey:CPCollectionViewMinItemSizeKey] || CGSizeMakeZero();
         _maxItemSize = [aCoder decodeSizeForKey:CPCollectionViewMaxItemSizeKey] || CGSizeMakeZero();
         _verticalMargin = [aCoder decodeFloatForKey:CPCollectionViewVerticalMarginKey];
+
+        [self setBackgroundColors:[aCoder decodeObjectForKey:CPCollectionViewBackgroundColorsKey]];
           
         _tileWidth = -1.0;
 
@@ -762,55 +714,13 @@ var CPCollectionViewMinItemSizeKey      = @"CPCollectionViewMinItemSizeKey",
 
     if (!CGSizeEqualToSize(_minItemSize, CGSizeMakeZero()))
       [aCoder encodeSize:_minItemSize forKey:CPCollectionViewMinItemSizeKey];
-      
+
     if (!CGSizeEqualToSize(_maxItemSize, CGSizeMakeZero()))
       [aCoder encodeSize:_maxItemSize forKey:CPCollectionViewMaxItemSizeKey];
 
     [aCoder encodeFloat:_verticalMargin forKey:CPCollectionViewVerticalMarginKey];
-}
 
-@end
-
-var CPCollectionViewItemViewKey = @"CPCollectionViewItemViewKey";
-
-@implementation CPCollectionViewItem (CPCoding)
-
-/*
-    FIXME Not yet implemented
-*/
-- (id)copy
-{
-    
-}
-
-@end
-
-var CPCollectionViewItemViewKey = @"CPCollectionViewItemViewKey";
-
-@implementation CPCollectionViewItem (CPCoding)
-
-/*!
-    Initializes the view item by unarchiving data from a coder.
-    @param aCoder the coder from which the data will be unarchived
-    @return the initialized collection view item
-*/
-- (id)initWithCoder:(CPCoder)aCoder
-{
-    self = [super init];
-    
-    if (self)
-        _view = [aCoder decodeObjectForKey:CPCollectionViewItemViewKey];
-    
-    return self;
-}
-
-/*!
-    Archives the colletion view item to the provided coder.
-    @param aCoder the coder to which the view item should be archived
-*/
-- (void)encodeWithCoder:(CPCoder)aCoder
-{
-    [aCoder encodeObject:_view forKey:CPCollectionViewItemViewKey];
+    [aCoder encodeObject:_backgroundColors forKey:CPCollectionViewBackgroundColorsKey];
 }
 
 @end

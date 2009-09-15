@@ -76,7 +76,7 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 
 
 #define NUMBER_OF_COLUMNS() (_tableColumns.length)
-//#define ENSURE_COLUMN_WIDTHS()
+#define UPDATE_COLUMN_RANGES_IF_NECESSARY() if (_dirtyTableColumnRangeIndex !== CPNotFound) [self _recalculateTableColumnRanges];
 
 @implementation _CPTableDrawView : CPView
 {
@@ -118,6 +118,7 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
     CPInteger   _dirtyTableColumnRangeIndex;
     CPInteger   _numberOfHiddenColumns;
 
+    BOOL        _reloadAllRows;
     Object      _objectValues;
     CPRange     _exposedRows;
     CPIndexSet  _exposedColumns;
@@ -257,15 +258,24 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 
 //Loading Data
 
+- (void)reloadDataForRowIndexes:(CPIndexSet)rowIndexes columnIndexes:(CPIndexSet)columnIndexes
+{
+    [self reloadData];
+//    [_previouslyExposedRows removeIndexes:rowIndexes];
+//    [_previouslyExposedColumns removeIndexes:columnIndexes];
+}
+
+
 - (void)reloadData
 {
     if (!_dataSource)
         return;
 
+    _reloadAllRows = YES;
     _objectValues = { };
 
+    // This updates the size too.
     [self noteNumberOfRowsChanged];
-    [self _sizeToParent];
 
     [self setNeedsLayout];
     [self setNeedsDisplay:YES];
@@ -472,7 +482,7 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
     if ([aTableColumn tableView] !== self)
         return;
 
-    var index = [_tableColumns indeOfObjectIdenticalTo:aTableColumn];
+    var index = [_tableColumns indexOfObjectIdenticalTo:aTableColumn];
 
     if (index === CPNotFound)
         return;
@@ -664,7 +674,15 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 
 - (void)setCornerView:(CPView)aView
 {
+    if (_cornerView === aView)
+        return;
+
     _cornerView = aView;
+
+    var scrollView = [[self superview] superview];
+
+    if ([scrollView isKindOfClass:[CPScrollView class]] && [scrollView documentView] === self)
+        [scrollView _updateCornerAndHeaderView];
 }
 
 - (CPView)headerView
@@ -674,8 +692,23 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 
 - (void)setHeaderView:(CPView)aHeaderView
 {
+    if (_headerView === aHeaderView)
+        return;
+
+    [_headerView setTableView:nil];
+
     _headerView = aHeaderView;
-    [_headerView setTableView:self];
+
+    if (_headerView)
+    {
+        [_headerView setTableView:self];
+        [_headerView setFrameSize:_CGSizeMake(_CGRectGetWidth([self frame]), _CGRectGetHeight([_headerView frame]))];
+    }
+
+    var scrollView = [[self superview] superview];
+
+    if ([scrollView isKindOfClass:[CPScrollView class]] && [scrollView documentView] === self)
+        [scrollView _updateCornerAndHeaderView];
 }
 
 //Layout Support
@@ -721,8 +754,7 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
     if (aColumnIndex < 0 || aColumnIndex >= NUMBER_OF_COLUMNS())
         return _CGRectMakeZero();
 
-    if (_dirtyTableColumnRangeIndex !== CPNotFound)
-        [self _recalculateTableColumnRanges];
+    UPDATE_COLUMN_RANGES_IF_NECESSARY();
 
     var range = _tableColumnRanges[aColumnIndex];
 
@@ -742,30 +774,27 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 // O(1)
 - (CPRange)rowsInRect:(CGRect)aRect
 {
-    var bounds = nil,
-        firstRow = [self rowAtPoint:aRect.origin],
-        lastRow = [self rowAtPoint:_CGPointMake(0.0, _CGRectGetMaxY(aRect))];
+    // If we have no rows, then we won't intersect anything.
+    if (_numberOfRows <= 0)
+        return CPMakeRange(0, 0);
 
+    var bounds = [self bounds];
+
+    // No rows if the rect doesn't even intersect us.
+    if (!CGRectIntersectsRect(aRect, bounds))
+        return CPMakeRange(0, 0);
+
+    var firstRow = [self rowAtPoint:aRect.origin];
+
+    // first row has to be undershot, because if not we wouldn't be intersecting.
     if (firstRow < 0)
-    {
-        bounds = [self bounds];
+        firstRow = 0;
 
-        if (_CGRectGetMinY(aRect) < _CGRectGetMinY(bounds))
-            firstRow = 0;
-        else
-            firstRow = _numberOfRows - 1;
-    }
+    var lastRow = [self rowAtPoint:_CGPointMake(0.0, _CGRectGetMaxY(aRect))];
 
+    // last row has to be overshot, because if not we wouldn't be intersecting.
     if (lastRow < 0)
-    {
-        if (!bounds)
-            bounds = [self bounds];
-
-        if (_CGRectGetMaxY(aRect) < _CGRectGetMinY(bounds))
-            lastRow = 0;
-        else
-            lastRow = _numberOfRows - 1;
-    }
+        lastRow = _numberOfRows - 1;
 
     return CPMakeRange(firstRow, lastRow - firstRow + 1);
 }
@@ -809,8 +838,7 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
     if (!_CGRectContainsPoint(bounds, aPoint))
         return CPNotFound;
 
-    if (_dirtyTableColumnRangeIndex !== CPNotFound)
-        [self _recalculateTableColumnRanges];
+    UPDATE_COLUMN_RANGES_IF_NECESSARY();
 
     var x = aPoint.x,
         low = 0,
@@ -860,10 +888,12 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
     return row;
 }
 
-- (CGRect)frameOfDataViewAtColumn:(CPInteger)aColumnIndex row:(CPInteger)aRowIndex
+- (CGRect)frameOfDataViewAtColumn:(CPInteger)aColumn row:(CPInteger)aRow
 {
-    var tableColumnRange = _tableColumns[aColumnIndex],
-        rectOfRow = [self rectOfRow:aRowIndex];
+    UPDATE_COLUMN_RANGES_IF_NECESSARY();
+
+    var tableColumnRange = _tableColumnRanges[aColumn],
+        rectOfRow = [self rectOfRow:aRow];
 
     return _CGRectMake(tableColumnRange.location, _CGRectGetMinY(rectOfRow), tableColumnRange.length, _CGRectGetHeight(rectOfRow));
 }
@@ -880,8 +910,7 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 
     var superviewSize = [superview bounds].size;
 
-    if (_dirtyTableColumnRangeIndex !== CPNotFound)
-        [self _recalculateTableColumnRanges];
+    UPDATE_COLUMN_RANGES_IF_NECESSARY();
 
     var count = NUMBER_OF_COLUMNS();
 
@@ -897,8 +926,32 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 {
     _numberOfRows = [_dataSource numberOfRowsInTableView:self];
 
-    [self setNeedsLayout];
+    [self tile];
 }
+
+- (void)tile
+{
+    UPDATE_COLUMN_RANGES_IF_NECESSARY();
+
+    // FIXME: variable row heights.
+    var width = _tableColumnRanges.length > 0 ? CPMaxRange([_tableColumnRanges lastObject]) : 0.0,
+        height = (_rowHeight + _intercellSpacing.height) * _numberOfRows,
+        superview = [self superview];
+
+    if ([superview isKindOfClass:[CPClipView class]])
+    {
+        var superviewSize = [superview bounds].size;
+
+        width = MAX(superviewSize.width, width);
+        height = MAX(superviewSize.height, height);
+    }
+
+    [self setFrameSize:_CGSizeMake(width, height)];
+
+    [self setNeedsLayout];
+    [self setNeedsDisplay:YES];
+}
+
 /*
     * - tile
     * - sizeToFit
@@ -916,23 +969,6 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
     * - setAutosaveName:
     * - setAutosaveTableColumns:
 */
-
-- (void)_sizeToParent
-{
-    var superviewSize = [[self superview] bounds].size;
-
-    if (_dirtyTableColumnRangeIndex !== CPNotFound)
-        [self _recalculateTableColumnRanges];
-
-    if (_tableColumnRanges.length > 0)
-        var naturalWidth = CPMaxRange([_tableColumnRanges lastObject]);
-
-    else
-        var naturalWidth = 0.0;
-
-    [self setFrameSize:_CGSizeMake( MAX(superviewSize.width, naturalWidth),
-                                    MAX(superviewSize.height, (_rowHeight + _intercellSpacing.height) * _numberOfRows))];
-}
 
 //Setting the Delegate:(id)aDelegate
 
@@ -1128,17 +1164,21 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 
 - (void)load
 {
-    if (!_dataSource)
-    {
-        // remove?
-        return;
-    }
-
 //    if (!window.blah)
 //        return window.setTimeout(function() { window.blah = true; [self load]; window.blah = false}, 0.0);
 
  //   if (window.console && window.console.profile)
  //       console.profile("cell-load");
+
+    if (_reloadAllRows)
+    {
+        [self _unloadDataViewsInRows:_exposedRows columns:_exposedColumns];
+
+        _exposedRows = [CPIndexSet indexSet];
+        _exposedColumns = [CPIndexSet indexSet];
+
+        _reloadAllRows = NO;
+    }
 
     var exposedRect = [self _exposedRect],
         exposedRows = [CPIndexSet indexSetWithIndexesInRange:[self rowsInRect:exposedRect]],
@@ -1182,6 +1222,17 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
 //    [_tableDrawView setBounds:exposedRect];
     [_tableDrawView display];
 
+    // Now clear all the leftovers
+    // FIXME: this could be faster!
+    for (identifier in _cachedDataViews)
+    {
+        var dataViews = _cachedDataViews[identifier],
+            count = dataViews.length;
+
+        while (count--)
+            [dataViews[count] removeFromSuperview];
+    }
+
   //  if (window.console && window.console.profile)
 //        console.profileEnd("cell-load");
 }
@@ -1215,10 +1266,8 @@ CPTableViewSolidHorizontalGridLineMask = 1 << 1;
                 dataView = _dataViewsForTableColumns[tableColumnUID][row];
 
             _dataViewsForTableColumns[tableColumnUID][row] = nil;
-if (!_cachedDataViews[dataView.identifier])
-_cachedDataViews[dataView.identifier] = [dataView];
-else
-_cachedDataViews[dataView.identifier].push(dataView);
+
+            [self _enqueueReusableDataView:dataView];
         }
     }
 }
@@ -1235,6 +1284,8 @@ _cachedDataViews[dataView.identifier].push(dataView);
     [rows getIndexes:rowArray maxCount:-1 inIndexRange:nil];
     [columns getIndexes:columnArray maxCount:-1 inIndexRange:nil];
 
+    UPDATE_COLUMN_RANGES_IF_NECESSARY();
+
     var columnIndex = 0,
         columnsCount = columnArray.length;
 
@@ -1242,8 +1293,7 @@ _cachedDataViews[dataView.identifier].push(dataView);
     {
         var column = columnArray[columnIndex],
             tableColumn = _tableColumns[column],
-            tableColumnUID = [tableColumn UID],
-            tableColumnRange = _tableColumnRanges[column];
+            tableColumnUID = [tableColumn UID];
 
     if (!_dataViewsForTableColumns[tableColumnUID])
         _dataViewsForTableColumns[tableColumnUID] = [];
@@ -1254,13 +1304,9 @@ _cachedDataViews[dataView.identifier].push(dataView);
         for (; rowIndex < rowsCount; ++rowIndex)
         {
             var row = rowArray[rowIndex],
-                dataView = [tableColumn _newDataViewForRow:row],
-                rectOfRow = rowRects[row];
+                dataView = [self _newDataViewForRow:row tableColumn:tableColumn];
 
-            if (!rectOfRow)
-                rectOfRow = rowRects[row] = [self rectOfRow:row];
-
-            [dataView setFrame:_CGRectMake(tableColumnRange.location, _CGRectGetMinY(rectOfRow), tableColumnRange.length, _CGRectGetHeight(rectOfRow))];
+            [dataView setFrame:[self frameOfDataViewAtColumn:column row:row]];
             [dataView setObjectValue:[self _objectValueForTableColumn:tableColumn row:row]];
 
             if ([dataView superview] !== self)
@@ -1271,10 +1317,28 @@ _cachedDataViews[dataView.identifier].push(dataView);
     }
 }
 
+- (CPView)_newDataViewForRow:(CPInteger)aRow tableColumn:(CPTableColumn)aTableColumn
+{
+    return [aTableColumn _newDataViewForRow:aRow];
+}
+
+- (void)_enqueueReusableDataView:(CPView)aDataView
+{
+    // FIXME: yuck!
+    var identifier = aDataView.identifier;
+
+    if (!_cachedDataViews[identifier])
+        _cachedDataViews[identifier] = [aDataView];
+    else
+        _cachedDataViews[identifier].push(aDataView);
+}
+
 - (void)setFrameSize:(CGSize)aSize
 {
     [super setFrameSize:aSize];
-    [_headerView setFrameSize:CGSizeMake(aSize.width, [_headerView frame].size.height)];
+
+    if (_headerView)
+        [_headerView setFrameSize:_CGSizeMake(_CGRectGetWidth([self frame]), _CGRectGetHeight([_headerView frame]))];
 }
 
 - (CGRect)exposedClipRect
@@ -1321,7 +1385,8 @@ _cachedDataViews[dataView.identifier].push(dataView);
     var exposedRows = [self rowsInRect:aRect],
         firstRow = exposedRows.location,
         lastRow = CPMaxRange(exposedRows) - 1,
-        colorIndex = MIN(exposedRows.length, colorCount);
+        colorIndex = MIN(exposedRows.length, colorCount),
+        heightFilled = 0.0;
 
     while (colorIndex--)
     {
@@ -1529,11 +1594,7 @@ _cachedDataViews[dataView.identifier].push(dataView);
 
 - (void)superviewFrameChanged:(CPNotification)aNotification
 {
-    [self _sizeToParent];
-
-    // Call this explicitly because *our* size may not change, but the exposedRect may change.
-    [self setNeedsDisplay:YES];
-    [self setNeedsLayout];
+    [self tile];
 }
 
 //
@@ -1560,6 +1621,8 @@ _cachedDataViews[dataView.identifier].push(dataView);
     else
         _selectionAnchorRow = row;
 
+    _previouslySelectedRowIndexes = nil;
+
     [self _updateSelectionWithMouseAtRow:row];
 
     return YES;
@@ -1573,26 +1636,9 @@ _cachedDataViews[dataView.identifier].push(dataView);
 }
 
 - (void)stopTracking:(CGPoint)lastPoint at:(CGPoint)aPoint mouseIsUp:(BOOL)mouseIsUp
-{/*
-    _clickedRow = [self rowAtPoint:point];
-    _clickedColumn = [self columnAtPoint:point];
-
-    if ([anEvent clickCount] === 2)
-    {
-        CPLog.warn("edit?!");
-
-        [self sendAction:_doubleAction to:_target];
-    }
-    else
-    {
-        if (![_previousSelectedRowIndexes isEqualToIndexSet:_selectedRowIndexes])
-        {
-            [[CPNotificationCenter defaultCenter] postNotificationName:CPTableViewSelectionDidChangeNotification object:self userInfo:nil];
-        }
-
-        [self sendAction:_action to:_target];
-    }
-*/
+{
+    if (![_previouslySelectedRowIndexes isEqualToIndexSet:_selectedRowIndexes])
+        [self _noteSelectionDidChange];
 }
 
 - (void)_updateSelectionWithMouseAtRow:(CPInteger)aRow
@@ -1661,10 +1707,26 @@ _cachedDataViews[dataView.identifier].push(dataView);
     if ([newSelection isEqualToIndexSet:_selectedRowIndexes])
         return;
 
+    if (!_previouslySelectedRowIndexes)
+        _previouslySelectedRowIndexes = [_selectedRowIndexes copy];
+
     [self selectRowIndexes:newSelection byExtendingSelection:NO];
 
+    [self _noteSelectionIsChanging];
+}
+
+- (void)_noteSelectionIsChanging
+{
     [[CPNotificationCenter defaultCenter]
         postNotificationName:CPTableViewSelectionIsChangingNotification
+                      object:self
+                    userInfo:nil];
+}
+
+- (void)_noteSelectionDidChange
+{
+    [[CPNotificationCenter defaultCenter]
+        postNotificationName:CPTableViewSelectionDidChangeNotification
                       object:self
                     userInfo:nil];
 }

@@ -92,7 +92,7 @@ CPWebViewScrollNative                           = 2;
         _mainFrameURL   = nil;
         _backwardStack  = [];
         _forwardStack   = [];
-        _scrollMode     = CPWebViewScrollNative;
+        _scrollMode     = CPWebViewScrollAppKit;
         
         [self _initDOMWithFrame:aFrame];
     }
@@ -140,6 +140,7 @@ CPWebViewScrollNative                           = 2;
 	    else
 	        _ignoreLoadEnd = NO;
         
+        [self _resizeWebFrame];
         [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 	}
 	
@@ -148,10 +149,10 @@ CPWebViewScrollNative                           = 2;
 	else if (_iframe.attachEvent)
 		_iframe.attachEvent("onload", _loadCallback);
 	
-	
-    _frameView = [[CPView alloc] initWithFrame:[self bounds]];
+    var frameBounds = CPMakeRect(aFrame.origin.x, aFrame.origin.y, aFrame.size.width-15, aFrame.size.height-15);
+    _frameView = [[CPView alloc] initWithFrame:aFrame];
 
-    _scrollView = [[CPScrollView alloc] initWithFrame:[self bounds]];
+    _scrollView = [[CPScrollView alloc] initWithFrame:aFrame];
     [_scrollView setAutoresizingMask:CPViewWidthSizable|CPViewHeightSizable];
     [_scrollView setDocumentView:_frameView];
 	
@@ -176,11 +177,12 @@ CPWebViewScrollNative                           = 2;
     {
         if (_scrollSize)
         {
-            [_frameView setFrameSize:_scrollSize];
+            [_frameView setFrameSize:CPMakeSize(_scrollSize.width-15, _scrollSize.height-15)];
         }
         else
         {
-            [_frameView setFrameSize:[_scrollView bounds].size];
+            var size = [_scrollView bounds].size;
+            [_frameView setFrameSize:CPMakeSize(size.width-15, size.height-15)];
             
             // try to get the document size so we can correctly set the frame
             var win = null;
@@ -195,12 +197,6 @@ CPWebViewScrollNative                           = 2;
                 _iframe.setAttribute("height", height);
 
                 [_frameView setFrameSize:CGSizeMake(width, height)];
-            }
-            else
-            {
-                CPLog.warn("using default size 800*1600");
-            
-                [_frameView setFrameSize:CGSizeMake(800, 1600)];
             }
         }
     }
@@ -295,8 +291,11 @@ CPWebViewScrollNative                           = 2;
         // need to give the browser a chance to reset iframe, otherwise we'll be document.write()-ing the previous document 
         window.setTimeout(function() {
             var win = [self DOMWindow];
-            
-            win.document.write(_html);
+            console.log("timeout");
+            if (win){
+                win.document.write(_html);
+                console.log("writing");
+            }
 
             window.setTimeout(_loadCallback, 1);
         }, 0);

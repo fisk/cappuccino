@@ -106,10 +106,12 @@ var CPSearchFieldSearchImage = nil,
 
 
           [_cancelButton setHidden:YES];
+          [_cancelButton setAutoresizingMask:CPViewMinXMargin];
           [self addSubview:_cancelButton];
           
           _searchButton = [[CPButton alloc] initWithFrame:CPMakeRect(5,(frame.size.height-25)/2,25,25)];
           [_searchButton setBezelStyle:CPRegularSquareBezelStyle];
+          [_searchButton setAutoresizingMask:CPViewMaxXMargin]
           [_searchButton setBordered:NO];
           [_searchButton setImageScaling:CPScaleToFit];
 
@@ -281,7 +283,7 @@ var CPSearchFieldSearchImage = nil,
 /*!
     Sets the menu template object used to dynamically construct the receiver's pop-up icon menu.
     @param menu The menu template to use.
-    The receiver looks for the tag constants described in “Menu tags” to determine how to populate the menu with items related to recent searches. See “Configuring a Search Menu” for a sample of how you might set up the search menu template.
+    The receiver looks for the tag constants described in ≈áMenu tags√ì to determine how to populate the menu with items related to recent searches. See ≈áConfiguring a Search Menu√ì for a sample of how you might set up the search menu template.
 */
 - (void)setSearchMenuTemplate:(CPMenu)menu
 {

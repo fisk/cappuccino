@@ -24,6 +24,7 @@
 @import <Foundation/CPBundle.j>
 
 @import "CPDocument.j"
+@import "CPOpenPanel.j";
 
 
 var CPSharedDocumentController = nil;
@@ -138,11 +139,11 @@ var CPSharedDocumentController = nil;
 - (CPDocument)openDocumentWithContentsOfURL:(CPURL)anAbsoluteURL display:(BOOL)shouldDisplay error:(CPError)anError
 {
     var result = [self documentForURL:anAbsoluteURL];
-    
+
     if (!result)
     {
         var type = [self typeForContentsOfURL:anAbsoluteURL error:anError];
-        
+
         result = [self makeDocumentWithContentsOfURL:anAbsoluteURL ofType:type delegate:self didReadSelector:@selector(document:didRead:contextInfo:) contextInfo:[CPDictionary dictionaryWithObject:shouldDisplay forKey:@"shouldDisplay"]];
     }
     else if (shouldDisplay)
@@ -217,6 +218,20 @@ var CPSharedDocumentController = nil;
 - (CFAction)newDocument:(id)aSender
 {
     [self openUntitledDocumentOfType:[[_documentTypes objectAtIndex:0] objectForKey:@"CPBundleTypeName"] display:YES];
+}
+
+-(void)openDocument:(id)aSender
+{
+    var openPanel = [CPOpenPanel openPanel];
+
+    [openPanel runModal];
+
+    var URLs = [openPanel URLs],
+        index = 0,
+        count = [URLs count];
+
+    for (; index < count; ++index)
+        [self openDocumentWithContentsOfURL:[CPURL URLWithString:URLs[index]] display:YES error:nil];
 }
 
 // Managing Documents
@@ -305,6 +320,41 @@ var CPSharedDocumentController = nil;
     var className = [[self _infoForType:aType] objectForKey:@"CPDocumentClass"];
 
     return className ? CPClassFromString(className) : nil;
+}
+
+@end
+
+@implementation CPDocumentController (Closing)
+
+- (void)closeAllDocumentsWithDelegate:(id)aDelegate didCloseAllSelector:(SEL)didCloseSelector contextInfo:(Object)info 
+{
+    var context = {
+        delegate: aDelegate,
+        selector: didCloseSelector,
+        context: info
+    };
+
+    [self _closeDocumentsStartingWith:nil shouldClose:YES context:context];
+}
+
+// Recursive callback method. Start it by passing in a document of nil.
+- (void)_closeDocumentsStartingWith:(CPDocument)aDocument shouldClose:(BOOL)shouldClose context:(Object)context
+{
+    if (shouldClose)
+    {
+        [aDocument close];
+
+        if ([[self documents] count] > 0)
+        {
+            [[[self documents] lastObject] canCloseDocumentWithDelegate:self
+                                                    shouldCloseSelector:@selector(_closeDocumentsStartingWith:shouldClose:context:)
+                                                            contextInfo:context];
+            return;
+        }
+    }
+
+    if ([context.delegate respondsToSelector:context.selector])
+        objj_msgSend(context.delegate, context.selector, self, [[self documents] count] === 0, context.context);
 }
 
 @end

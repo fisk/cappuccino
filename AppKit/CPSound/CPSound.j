@@ -21,7 +21,7 @@
  */
 
 
-@import <AppKit/CPDOMWindowBridge.j>
+@import <AppKit/CPPlatformWindow.j>
 @import <Foundation/CPObject.j>
 @import <Foundation/CPString.j>
 @import <Foundation/CPDictionary.j>
@@ -51,9 +51,8 @@ var _CPMixerSounds = nil;
 
 + (void)initialize
 {
-    var bridge = [CPDOMWindowBridge sharedDOMWindowBridge];
-    var body = bridge._DOMBodyElement;
-    _CPMixerDiv = body;
+    var bridge = [CPPlatformWindow primaryPlatformWindow];
+    _CPMixerDiv = bridge._DOMBodyElement;
 }
 
 /*!

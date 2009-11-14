@@ -185,7 +185,7 @@ var _CPSoundHaveQT = NO;
         var _DOMEventElement = document.createElement("object");
         _DOMEventElement.setAttribute("id", qtEventID);
         _DOMEventElement.setAttribute("classid", "clsid:CB927D12-4FF7-4a9e-A169-56E4B8A75598");
-        //_DOMEventElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
+        _DOMEventElement.setAttribute("codebase", "http://www.apple.com/qtactivex/qtplugin.cab");
         document.getElementsByTagName("head")[0].appendChild(_DOMEventElement);
     }
 }

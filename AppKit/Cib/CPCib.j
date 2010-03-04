@@ -60,7 +60,7 @@ var CPCibObjectDataKey  = @"CPCibObjectDataKey";
 
     if (self)
     {
-        _data = [CPURLConnection sendSynchronousRequest:[CPURLRequest requestWithURL:aURL] returningResponse:nil error:nil];
+        _data = [CPURLConnection sendSynchronousRequest:[CPURLRequest requestWithURL:aURL] returningResponse:nil];
         _awakenCustomResources = YES;
     }
 
@@ -171,7 +171,7 @@ var CPCibObjectDataKey  = @"CPCibObjectDataKey";
 
 - (void)connection:(CPURLConnection)aConnection didReceiveData:(CPString)data
 {
-    _data = [CPData dataWithString:data];
+    _data = [CPData dataWithRawString:data];
 }
 
 - (void)connection:(CPURLConnection)aConnection didFailWithError:(CPError)anError

@@ -1834,7 +1834,7 @@ CPTableViewFirstColumnOnlyAutoresizingStyle = 5;
     {
         var numberOfRows = [self numberOfRows] + 1;
         var reason = @"Attempt to set dropRow=" + row + 
-                     " dropOperation=CPTableViewDropOn when [0 - " + numberOfRows + "] is valid range of rows."
+                     " dropOperation=CPTableViewDropOn when [0 - " + numberOfRows + "] is valid range of rows.";
         
         [[CPException exceptionWithName:@"Error" reason:reason userInfo:nil] raise];
     }

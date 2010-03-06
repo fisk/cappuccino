@@ -140,9 +140,9 @@ StringBuffer.prototype.toString = function()
     return this.atoms.join("");
 }
 
-exports.preprocess = function(/*String*/ aString, /*CFURL*/ aURL, /*unsigned*/ flags)
+exports.preprocess = function(/*String*/ aString, /*String*/ aPath, /*unsigned*/ flags)
 {
-    return new Preprocessor(aString, aURL, flags).executable();
+    return new Preprocessor(aString, aPath, flags).executable();
 }
 
 exports.eval = function(/*String*/ aString)
@@ -150,10 +150,8 @@ exports.eval = function(/*String*/ aString)
     return eval(exports.preprocess(aString).code());
 }
 
-var Preprocessor = function(/*String*/ aString, /*CFURL|String*/ aURL, /*unsigned*/ flags)
+var Preprocessor = function(/*String*/ aString, /*String*/ aPath, /*unsigned*/ flags)
 {
-    this._URL = new CFURL(aURL);
-
     // Remove the shebang.
     aString = aString.replace(/^#[^\n]+\n/, "\n");
 
@@ -161,6 +159,8 @@ var Preprocessor = function(/*String*/ aString, /*CFURL|String*/ aURL, /*unsigne
     this._currentClass = "";
     this._currentSuperClass = "";
     this._currentSuperMetaClass = "";
+
+    this._filePath = aPath;
 
     this._buffer = new StringBuffer();
     this._preprocessed = NULL;
@@ -184,7 +184,7 @@ Preprocessor.Flags.IncludeTypeSignatures    = 1 << 1;
 Preprocessor.prototype.executable = function()
 {
     if (!this._executable)
-        this._executable = new Executable(this._buffer.toString(), this._dependencies, this._URL);
+        this._executable = new Executable(this._buffer.toString(), this._dependencies, this._filePath);
 
     return this._executable;
 }
@@ -534,30 +534,30 @@ Preprocessor.prototype.implementation = function(tokens, /*StringBuffer*/ aStrin
 
 Preprocessor.prototype._import = function(tokens)
 {
-    var URLString = "",
+    var path = "",
         token = tokens.skip_whitespace(),
-        isQuoted = (token !== TOKEN_LESS_THAN);
+        isLocal = (token != TOKEN_LESS_THAN);
 
     if (token === TOKEN_LESS_THAN)
     {
-        while((token = tokens.next()) && token !== TOKEN_GREATER_THAN)
-            URLString += token;
+        while((token = tokens.next()) && token != TOKEN_GREATER_THAN)
+            path += token;
         
         if(!token)
             throw new SyntaxError(this.error_message("*** Unterminated import statement."));
     }
     
-    else if (token.charAt(0) === TOKEN_DOUBLE_QUOTE)
-        URLString = token.substr(1, token.length - 2);
+    else if (token.charAt(0) == TOKEN_DOUBLE_QUOTE)
+        path = token.substr(1, token.length - 2);
     
     else
         throw new SyntaxError(this.error_message("*** Expecting '<' or '\"', found \"" + token + "\"."));
 
     CONCAT(this._buffer, "objj_executeFile(\"");
-    CONCAT(this._buffer, URLString);
-    CONCAT(this._buffer, isQuoted ? "\", YES);" : "\", NO);");
+    CONCAT(this._buffer, path);
+    CONCAT(this._buffer, isLocal ? "\", true);" : "\", false);");
 
-    this._dependencies.push(new FileDependency(new CFURL(URLString), isQuoted));
+    this._dependencies.push(new FileDependency(path, isLocal));
 }
 
 Preprocessor.prototype.method = function(/*Lexer*/ tokens)
@@ -855,7 +855,7 @@ Preprocessor.prototype.preprocess = function(tokens, /*StringBuffer*/ aStringBuf
     
     // If we get this far and we're parsing an objj_msgSend (or array), then we have a problem.
     if (tuple)
-        throw new SyntaxError(this.error_message("*** Expected ']' - Unterminated message send or array."));
+        new SyntaxError(this.error_message("*** Expected ']' - Unterminated message send or array."));
 
     if (!aStringBuffer)
         return buffer;
@@ -908,7 +908,7 @@ Preprocessor.prototype.selector = function(tokens, aStringBuffer)
 
 Preprocessor.prototype.error_message = function(errorMessage)
 {
-    return errorMessage + " <Context File: "+ this._URL +
+    return errorMessage + " <Context File: "+ this._filePath +
                                 (this._currentClass ? " Class: "+this._currentClass : "") +
                                 (this._currentSelector ? " Method: "+this._currentSelector : "") +">";
 }

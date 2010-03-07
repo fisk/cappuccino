@@ -169,6 +169,6 @@ var _CPFontDetectPickTwoDifferentFonts = function(candidates) {
 			if (_CPFontDetectCompareFonts(candidates[i], candidates[j]))
 				return [candidates[i], candidates[j]];
 	return [candidates[0]];
-}
+};
 
 [CPFontManager setFontManagerFactory:[CPFontManager class]];

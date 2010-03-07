@@ -276,7 +276,7 @@ var DefaultLineWidth = 1.0;
 /*!
     Append the contents of a CPBezierPath object.
 */
-- (void)appendBezierPath:(NSBezierPath *)other
+- (void)appendBezierPath:(NSBezierPath)other
 {
     CGPathAddPath(_path, nil, other._path);
 }

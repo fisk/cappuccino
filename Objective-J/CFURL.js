@@ -121,7 +121,7 @@ function CFURLGetParts(/*CFURL*/ aURL)
     if (parts.path)
     {
         var split = parts.path.split("/"),
-            pathComponents = parts.pathComponents;
+            pathComponents = parts.pathComponents,
             index = 0,
             count = split.length;
     
@@ -151,6 +151,8 @@ function CFURLGetParts(/*CFURL*/ aURL)
     return parts;
 }
 
+#define PARTS(aURL) ((aURL)._parts || CFURLGetParts(aURL))
+
 GLOBAL(CFURL) = function(/*CFURL|String*/ aURL, /*CFURL*/ aBaseURL)
 {
     aURL = aURL || "";
@@ -165,7 +167,7 @@ GLOBAL(CFURL) = function(/*CFURL|String*/ aURL, /*CFURL*/ aBaseURL)
         if (existingBaseURL)
             aBaseURL = new CFURL(existingBaseURL.absoluteURL(), aBaseURL);
 
-        return new CFURL(aURL.string(), aBaseURL);
+        aURL = aURL.string();
     }
 
     // Use the cache if it's enabled.
@@ -202,24 +204,30 @@ GLOBAL(CFURL) = function(/*CFURL|String*/ aURL, /*CFURL*/ aBaseURL)
     this._baseURL = aBaseURL;
 }
 
-CFURL.displayName = "CFURL";
-
-var URLMap = { };
+DISPLAY_NAME(CFURL);
 
 CFURL.prototype.UID = function()
 {
     return this._UID;
 }
 
+DISPLAY_NAME(CFURL.prototype.UID);
+
+var URLMap = { };
+
 CFURL.prototype.mappedURL = function()
 {
     return URLMap[this.absoluteString()] || this;
 }
 
+DISPLAY_NAME(CFURL.prototype.mappedURL);
+
 CFURL.setMappedURLForURL = function(/*CFURL*/ fromURL, /*CFURL*/ toURL)
 {
     URLMap[fromURL.absoluteString()] = toURL;
 }
+
+DISPLAY_NAME(CFURL.setMappedURLForURL);
 
 CFURL.prototype.schemeAndAuthority = function()
 {
@@ -237,15 +245,24 @@ CFURL.prototype.schemeAndAuthority = function()
     return string;
 }
 
+DISPLAY_NAME(CFURL.prototype.schemeAndAuthority);
+
 CFURL.prototype.absoluteString = function()
 {
-    return this.absoluteURL().string();
+    if (this._absoluteString === undefined)
+        this._absoluteString = this.absoluteURL().string();
+
+    return this._absoluteString;
 }
+
+DISPLAY_NAME(CFURL.prototype.absoluteString);
 
 CFURL.prototype.toString = function()
 {
     return this.absoluteString();
 }
+
+DISPLAY_NAME(CFURL.prototype.toString);
 
 function resolveURL(aURL)
 {
@@ -256,9 +273,10 @@ function resolveURL(aURL)
     if (!baseURL)
         return aURL;
 
-    var parts = CFURLGetParts(aURL),
+    var parts = PARTS(aURL),
         resolvedParts,
-        baseParts = CFURLGetParts(baseURL.absoluteURL());
+        absoluteBaseURL = baseURL.absoluteURL(),
+        baseParts = PARTS(absoluteBaseURL);
 
     if (parts.scheme || parts.authority)
         resolvedParts = parts;
@@ -297,7 +315,7 @@ function resolveURL(aURL)
 
             // If this doesn't start with a "..", then we're simply appending to already standardized paths.
             if (pathComponents.length && pathComponents[0] === "..")
-                standardizePathComponents(resolvedPathComponents);
+                standardizePathComponents(resolvedPathComponents, YES);
 
             resolvedParts.pathComponents = resolvedPathComponents;
             resolvedParts.path = pathFromPathComponents(resolvedPathComponents, pathComponents.length <= 0 || aURL.hasDirectoryPath());
@@ -309,7 +327,9 @@ function resolveURL(aURL)
 
     resolvedURL._parts = resolvedParts;
     resolvedURL._standardizedURL = resolvedURL;
+    resolvedURL._standardizedString = resolvedString;
     resolvedURL._absoluteURL = resolvedURL;
+    resolvedURL._absoluteString = resolvedString;
 
     return resolvedURL;
 }
@@ -327,11 +347,12 @@ function pathFromPathComponents(/*Array*/ pathComponents, /*BOOL*/ isDirectoryPa
     return path;
 }
 
-function standardizePathComponents(/*Array*/ pathComponents)
+function standardizePathComponents(/*Array*/ pathComponents, /*BOOL*/ inPlace)
 {
     var index = 0,
         resultIndex = 0,
-        count = pathComponents.length;
+        count = pathComponents.length,
+        result = inPlace ? pathComponents : [];
 
     for (; index < count; ++index)
     {
@@ -340,21 +361,23 @@ function standardizePathComponents(/*Array*/ pathComponents)
         if (component === "" || component === ".")
              continue;
 
-        if (component !== ".." || resultIndex === 0 || pathComponents[resultIndex - 1] === "..")
+        if (component !== ".." || resultIndex === 0 || result[resultIndex - 1] === "..")
         {
             //if (resultIndex !== index)
-                pathComponents[resultIndex] = component;
+                result[resultIndex] = component;
 
             resultIndex++;
 
             continue;
         }
 
-        if (resultIndex > 0 && pathComponents[resultIndex - 1] !== "/")
+        if (resultIndex > 0 && result[resultIndex - 1] !== "/")
             --resultIndex;
     }
 
-    pathComponents.length = resultIndex;
+    result.length = resultIndex;
+
+    return result;
 }
 
 function URLStringFromParts(/*Object*/ parts)
@@ -393,15 +416,15 @@ CFURL.prototype.absoluteURL = function()
     return this._absoluteURL;
 }
 
+DISPLAY_NAME(CFURL.prototype.absoluteURL);
+
 CFURL.prototype.standardizedURL = function()
 {
     if (this._standardizedURL === undefined)
     {
-        var parts = CFURLGetParts(this),
+        var parts = PARTS(this),
             pathComponents = parts.pathComponents,
-            standardizedPathComponents = pathComponents.slice();
-
-        standardizePathComponents(standardizedPathComponents);
+            standardizedPathComponents = standardizePathComponents(pathComponents, NO);
 
         var standardizedPath = pathFromPathComponents(standardizedPathComponents, this.hasDirectoryPath());
 
@@ -418,7 +441,7 @@ CFURL.prototype.standardizedURL = function()
             var standardizedURL = new CFURL(URLStringFromParts(standardizedParts), this.baseURL());
 
             standardizedURL._parts = standardizedParts;
-            standardizedURL._standardizedParts = standardizedURL;
+            standardizedURL._standardizedURL = standardizedURL;
 
             this._standardizedURL = standardizedURL;
         }
@@ -426,6 +449,8 @@ CFURL.prototype.standardizedURL = function()
 
     return this._standardizedURL;
 }
+
+DISPLAY_NAME(CFURL.prototype.standardizedURL);
 
 function CFURLPartsCreateCopy(parts)
 {
@@ -447,9 +472,11 @@ CFURL.prototype.string = function()
     return this._string;
 }
 
+DISPLAY_NAME(CFURL.prototype.string);
+
 CFURL.prototype.authority = function()
 {
-    var authority = CFURLGetParts(this).authority;
+    var authority = PARTS(this).authority;
 
     if (authority)
         return authority;
@@ -459,51 +486,79 @@ CFURL.prototype.authority = function()
     return baseURL && baseURL.authority() || "";
 }
 
+DISPLAY_NAME(CFURL.prototype.authority);
+
 CFURL.prototype.hasDirectoryPath = function()
 {
-    var path = this.path();
+    var hasDirectoryPath = this._hasDirectoryPath;
 
-    if (!path)
-        return NO;
+    if (hasDirectoryPath === undefined)
+    {
+        var path = this.path();
 
-    if (path.charAt(path.length - 1) === "/")
-        return YES;
+        if (!path)
+            return NO;
 
-    var lastPathComponent = this.lastPathComponent();
+        if (path.charAt(path.length - 1) === "/")
+            return YES;
 
-    return lastPathComponent === "." || lastPathComponent === "..";
+        var lastPathComponent = this.lastPathComponent();
+
+        hasDirectoryPath = lastPathComponent === "." || lastPathComponent === "..";
+        this._hasDirectoryPath = hasDirectoryPath;
+    }
+
+    return this._hasDirectoryPath;
 }
+
+DISPLAY_NAME(CFURL.prototype.hasDirectoryPath);
 
 CFURL.prototype.hostName = function()
 {
     return this.authority();
 }
 
+DISPLAY_NAME(CFURL.prototype.hostName);
+
 CFURL.prototype.fragment = function()
 {
-    return CFURLGetParts(this).fragment;
+    return PARTS(this).fragment;
 }
+
+DISPLAY_NAME(CFURL.prototype.fragment);
 
 CFURL.prototype.lastPathComponent = function()
 {
-    var pathComponents = this.pathComponents(),
-        pathComponentCount = pathComponents.length;
+    if (this._lastPathComponent === undefined)
+    {
+        var pathComponents = this.pathComponents(),
+            pathComponentCount = pathComponents.length;
 
-    if (!pathComponentCount)
-        return "";
+        if (!pathComponentCount)
+            this._lastPathComponent = "";
 
-    return pathComponents[pathComponentCount - 1];
+        else
+            this._lastPathComponent = pathComponents[pathComponentCount - 1];
+    }
+
+    return this._lastPathComponent;
 }
+
+DISPLAY_NAME(CFURL.prototype.lastPathComponent);
 
 CFURL.prototype.path = function()
 {
-    return CFURLGetParts(this).path;
+    return PARTS(this).path;
 }
+
+DISPLAY_NAME(CFURL.prototype.path);
 
 CFURL.prototype.pathComponents = function()
 {
-    return CFURLGetParts(this).pathComponents;
+    return PARTS(this).pathComponents;
 }
+
+DISPLAY_NAME(CFURL.prototype.pathComponents);
 
 CFURL.prototype.pathExtension = function()
 {
@@ -519,47 +574,72 @@ CFURL.prototype.pathExtension = function()
     return index <= 0 ? "" : lastPathComponent.substring(index + 1);
 }
 
+DISPLAY_NAME(CFURL.prototype.pathExtension);
+
 CFURL.prototype.queryString = function()
 {
-    return CFURLGetParts(this).queryString;
+    return PARTS(this).queryString;
 }
+
+DISPLAY_NAME(CFURL.prototype.queryString);
 
 CFURL.prototype.scheme = function()
 {
-    var scheme = CFURLGetParts(this).scheme;
+    var scheme = this._scheme;
 
-    if (scheme)
-        return scheme;
+    if (scheme === undefined)
+    {
+        scheme = PARTS(this).scheme;
 
-    var baseURL = this.baseURL();
+        if (!scheme)
+        {
+            var baseURL = this.baseURL();
 
-    return baseURL && baseURL.scheme();
+            scheme = baseURL && baseURL.scheme();
+        }
+
+        this._scheme = scheme;
+    }
+
+    return scheme;
 }
+
+DISPLAY_NAME(CFURL.prototype.scheme);
 
 CFURL.prototype.user = function()
 {
-    return CFURLGetParts(this).user;
+    return PARTS(this).user;
 }
+
+DISPLAY_NAME(CFURL.prototype.user);
 
 CFURL.prototype.password = function()
 {
-    return CFURLGetParts(this).password;
+    return PARTS(this).password;
 }
+
+DISPLAY_NAME(CFURL.prototype.password);
 
 CFURL.prototype.portNumber = function()
 {
-    return CFURLGetParts(this).portNumber;
+    return PARTS(this).portNumber;
 }
+
+DISPLAY_NAME(CFURL.prototype.portNumber);
 
 CFURL.prototype.domain = function()
 {
-    return CFURLGetParts(this).domain;
+    return PARTS(this).domain;
 }
+
+DISPLAY_NAME(CFURL.prototype.domain);
 
 CFURL.prototype.baseURL = function()
 {
     return this._baseURL;
 }
+
+DISPLAY_NAME(CFURL.prototype.baseURL);
 
 CFURL.prototype.asDirectoryPathURL = function()
 {
@@ -568,6 +648,8 @@ CFURL.prototype.asDirectoryPathURL = function()
 
     return new CFURL(this.lastPathComponent() + "/", this);
 }
+
+DISPLAY_NAME(CFURL.prototype.asDirectoryPathURL);
 
 function CFURLGetResourcePropertiesForKeys(/*CFURL*/ aURL)
 {
@@ -582,10 +664,14 @@ CFURL.prototype.resourcePropertyForKey = function(/*String*/ aKey)
     return CFURLGetResourcePropertiesForKeys(this).valueForKey(aKey);
 }
 
+DISPLAY_NAME(CFURL.prototype.resourcePropertyForKey);
+
 CFURL.prototype.setResourcePropertyForKey = function(/*String*/ aKey, /*id*/ aValue)
 {
     CFURLGetResourcePropertiesForKeys(this).setValueForKey(aKey, aValue);
 }
+
+DISPLAY_NAME(CFURL.prototype.setResourcePropertyForKey);
 
 CFURL.prototype.staticResourceData = function()
 {
@@ -595,3 +681,5 @@ CFURL.prototype.staticResourceData = function()
 
     return data;
 }
+
+DISPLAY_NAME(CFURL.prototype.staticResourceData);

@@ -27,7 +27,7 @@ app ("__project.nameasidentifier__", function(task)
     task.setEmail("__organization.email__");
     task.setSummary("__project.name__");
     task.setSources((new FileList("**/*.j")).exclude(FILE.join("Build", "**")));
-    task.setResources(new FileList("Resources/*"));
+    task.setResources(new FileList("Resources/**"));
     task.setIndexFilePath("index.html");
     task.setInfoPlistPath("Info.plist");
 
@@ -39,9 +39,9 @@ app ("__project.nameasidentifier__", function(task)
 
 function printResults(configuration)
 {
-    print("----------------------------")
+    print("----------------------------");
     print(configuration+" app built at path: "+FILE.join("Build", configuration, "__project.nameasidentifier__"));
-    print("----------------------------")
+    print("----------------------------");
 }
 
 task ("default", ["__project.nameasidentifier__"], function()

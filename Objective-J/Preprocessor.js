@@ -1,5 +1,279 @@
-exports.Preprocessor = Preprocessor;Preprocessor.Flags = { };Preprocessor.Flags.IncludeDebugSymbols      = 1 << 0;Preprocessor.Flags.IncludeTypeSignatures    = 1 << 1;
-function Preprocessor(str, url, flags)
+/*
+ * Preprocessor.js
+ * Objective-J
+ *
+ * Created by Francisco Tolmasky.
+ * Copyright 2008-2010, 280 North, Inc.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+var TOKEN_ACCESSORS         = "accessors",
+    TOKEN_CLASS             = "class",
+    TOKEN_END               = "end",
+    TOKEN_FUNCTION          = "function",
+    TOKEN_IMPLEMENTATION    = "implementation",
+    TOKEN_IMPORT            = "import",
+    TOKEN_EACH              = "each",
+    TOKEN_OUTLET            = "outlet",
+    TOKEN_ACTION            = "action",
+    TOKEN_NEW               = "new",
+    TOKEN_SELECTOR          = "selector",
+    TOKEN_SUPER             = "super",
+    TOKEN_VAR               = "var",
+    TOKEN_IN                = "in",
+
+    TOKEN_EQUAL             = '=',
+    TOKEN_PLUS              = '+',
+    TOKEN_MINUS             = '-',
+    TOKEN_COLON             = ':',
+    TOKEN_COMMA             = ',',
+    TOKEN_PERIOD            = '.',
+    TOKEN_ASTERISK          = '*',
+    TOKEN_SEMICOLON         = ';',
+    TOKEN_LESS_THAN         = '<',
+    TOKEN_OPEN_BRACE        = '{',
+    TOKEN_CLOSE_BRACE       = '}',
+    TOKEN_GREATER_THAN      = '>',
+    TOKEN_OPEN_BRACKET      = '[',
+    TOKEN_DOUBLE_QUOTE      = '"',
+    TOKEN_PREPROCESSOR      = '@',
+    TOKEN_CLOSE_BRACKET     = ']',
+    TOKEN_QUESTION_MARK     = '?',
+    TOKEN_OPEN_PARENTHESIS  = '(',
+    TOKEN_CLOSE_PARENTHESIS = ')',
+
+    TOKEN_WHITESPACE        = /^(?:(?:\s+$)|(?:\/(?:\/|\*)))/,
+    TOKEN_NUMBER            = /^[+-]?\d+(([.]\d+)*([eE][+-]?\d+))?$/,
+    TOKEN_IDENTIFIER        = /^[a-zA-Z_$](\w|$)*$/;
+    
+#define IS_WORD(token) /^\w+$/.test(token)
+
+function Lexer(/*String*/ aString)
+{
+    this._index = -1;
+    // FIXME: Used fixed regex
+    this._tokens = (aString + '\n').match(/\/\/.*(\r|\n)?|\/\*(?:.|\n|\r)*?\*\/|\w+\b|[+-]?\d+(([.]\d+)*([eE][+-]?\d+))?|"[^"\\]*(\\[\s\S][^"\\]*)*"|'[^'\\]*(\\[\s\S][^'\\]*)*'|\s+|./g);
+    this._context = [];
+    
+    return this;
+}
+
+Lexer.prototype.push = function()
+{
+    this._context.push(this._index);
+}
+
+Lexer.prototype.pop = function()
+{
+    this._index = this._context.pop();
+}
+
+Lexer.prototype.peak = function(shouldSkipWhitespace)
+{
+    if (shouldSkipWhitespace)
+    {
+        this.push();
+        var token = this.skip_whitespace();
+        this.pop();
+        
+        return token;
+    }
+    
+    return this._tokens[this._index + 1];
+}
+
+Lexer.prototype.next = function()
+{
+    return this._tokens[++this._index];
+}
+
+Lexer.prototype.previous = function()
+{
+    return this._tokens[--this._index];
+}
+
+Lexer.prototype.last = function()
+{
+    if (this._index < 0)
+        return NULL;
+    
+    return this._tokens[this._index - 1];
+}
+
+Lexer.prototype.skip_whitespace= function(shouldMoveBackwards)
+{   
+    var token;
+    
+    if (shouldMoveBackwards)
+        while((token = this.previous()) && TOKEN_WHITESPACE.test(token)) ;
+    else
+        while((token = this.next()) && TOKEN_WHITESPACE.test(token)) ;
+
+    return token;
+}
+
+exports.Lexer = Lexer;
+
+#define IS_NOT_EMPTY(buffer) buffer.atoms.length !== 0
+#define CONCAT(buffer, atom) buffer.atoms[buffer.atoms.length] = atom
+
+function StringBuffer()
+{
+    this.atoms = [];
+}
+
+StringBuffer.prototype.toString = function()
+{
+    return this.atoms.join("");
+}
+
+exports.preprocess = function(/*String*/ aString, /*CFURL*/ aURL, /*unsigned*/ flags)
+{
+    return new Preprocessor(aString, aURL, flags).executable();
+}
+
+exports.eval = function(/*String*/ aString)
+{
+    return eval(exports.preprocess(aString).code());
+}
+
+var Preprocessor = function(/*String*/ aString, /*CFURL|String*/ aURL, /*unsigned*/ flags)
+{
+    this._URL = new CFURL(aURL);
+
+    // Remove the shebang.
+    aString = aString.replace(/^#[^\n]+\n/, "\n");
+
+    this._currentSelector = "";
+    this._currentClass = "";
+    this._currentSuperClass = "";
+    this._currentSuperMetaClass = "";
+
+    this._buffer = new StringBuffer();
+    this._preprocessed = NULL;
+    this._dependencies = [];
+
+    this._tokens = new Lexer(aString);
+    this._flags = flags;
+    this._classMethod = false;
+    this._executable = NULL;
+
+    this._classLookupTable = {};
+
+    this._classVars = {};
+
+    var classObject = new objj_class();
+    for (var i in classObject)
+        this._classVars[i] = 1;
+
+    this.preprocess(this._tokens, this._buffer);
+}
+
+Preprocessor.prototype.setClassInfo = function(className, superClassName, ivars)
+{
+    this._classLookupTable[className] = {superClassName:superClassName, ivars:ivars};
+}
+
+Preprocessor.prototype.getClassInfo = function(className)
+{
+    return this._classLookupTable[className];
+}
+
+Preprocessor.prototype.allIvarNamesForClassName = function(className)
+{
+    var names = {},
+        classInfo = this.getClassInfo(className);
+
+    while (classInfo)
+    {
+        for (var i in classInfo.ivars)
+            names[i] = 1;
+
+        classInfo = this.getClassInfo(classInfo.superClassName);
+    }
+
+    return names;
+}
+
+exports.Preprocessor = Preprocessor;
+
+Preprocessor.Flags = { };
+
+Preprocessor.Flags.IncludeDebugSymbols      = 1 << 0;
+Preprocessor.Flags.IncludeTypeSignatures    = 1 << 1;
+
+Preprocessor.prototype.executable = function()
+{
+    if (!this._executable)
+        this._executable = new Executable(this._buffer.toString(), this._dependencies, this._URL);
+
+    return this._executable;
+}
+
+Preprocessor.prototype.accessors = function(tokens)
+{
+    var token = tokens.skip_whitespace(),
+        attributes = {};
+
+    if (token != TOKEN_OPEN_PARENTHESIS)
+    {
+        tokens.previous();
+        
+        return attributes;
+    }
+
+    while ((token = tokens.skip_whitespace()) != TOKEN_CLOSE_PARENTHESIS)
+    {
+        var name = token,
+            value = true;
+
+        if (!IS_WORD(name))
+            throw new SyntaxError(this.error_message("*** @property attribute name not valid."));
+
+        if ((token = tokens.skip_whitespace()) == TOKEN_EQUAL)
+        {
+            value = tokens.skip_whitespace();
+            
+            if (!IS_WORD(value))
+                throw new SyntaxError(this.error_message("*** @property attribute value not valid."));
+
+            if (name == "setter")
+            {
+                if ((token = tokens.next()) != TOKEN_COLON)
+                    throw new SyntaxError(this.error_message("*** @property setter attribute requires argument with \":\" at end of selector name."));
+                
+                value += ":";
+            }
+
+            token = tokens.skip_whitespace();
+        }
+
+        attributes[name] = value;
+
+        if (token == TOKEN_CLOSE_PARENTHESIS)
+            break;
+        
+        if (token != TOKEN_COMMA)
+            throw new SyntaxError(this.error_message("*** Expected ',' or ')' in @property attribute list."));
+    }
+    
+    return attributes;
+}
+
+Preprocessor.prototype.brackets = function(/*Lexer*/ tokens, /*StringBuffer*/ aStringBuffer)
 {
 this._start = new Date().getTime();
 this._lexer = new objj_lexer(str);
@@ -22,16 +296,327 @@ try {
 start = new Date().getTime();
 var derivation = this._parser.parse(tokens);
 
+Preprocessor.prototype.implementation = function(tokens, /*StringBuffer*/ aStringBuffer)
+{
+    var buffer = aStringBuffer,
+        token = "",
+        category = NO,
+        class_name = tokens.skip_whitespace(),
+        superclass_name = "Nil",
 
-} catch (e) {
-var index = e - 1;
-var error = "Unexpected token: " + matches[index] + "\n\n";
-for (var i = Math.max(index - 20, 0); i < Math.min(matches.length, index + 10); i++)
+        instance_methods = new StringBuffer(),
+        class_methods = new StringBuffer();
+    
+    if (!(/^\w/).test(class_name))
+        throw new Error(this.error_message("*** Expected class name, found \"" + class_name + "\"."));
+
+    this._currentSuperClass = "objj_getClass(\"" + class_name + "\").super_class";
+    this._currentSuperMetaClass = "objj_getMetaClass(\"" + class_name + "\").super_class";
+
+    this._currentClass = class_name;
+    this._currentSelector = "";
+
+    // If we reach an open parenthesis, we are declaring a category.
+    if((token = tokens.skip_whitespace()) == TOKEN_OPEN_PARENTHESIS)
+    {
+        token = tokens.skip_whitespace();
+        
+        if (token == TOKEN_CLOSE_PARENTHESIS)
+            throw new SyntaxError(this.error_message("*** Can't Have Empty Category Name for class \"" + class_name + "\"."));
+        
+        if (tokens.skip_whitespace() != TOKEN_CLOSE_PARENTHESIS)
+            throw new SyntaxError(this.error_message("*** Improper Category Definition for class \"" + class_name + "\"."));
+        
+        CONCAT(buffer, "{\nvar the_class = objj_getClass(\"" + class_name + "\")\n");
+        CONCAT(buffer, "if(!the_class) throw new SyntaxError(\"*** Could not find definition for class \\\"" + class_name + "\\\"\");\n");
+        CONCAT(buffer, "var meta_class = the_class.isa;");
+    }
+    else
+    {
+        // If we reach a colon (':'), then a superclass is being declared.
+        if(token == TOKEN_COLON)
+        {
+            token = tokens.skip_whitespace();
+            
+            if (!TOKEN_IDENTIFIER.test(token))
+                throw new SyntaxError(this.error_message("*** Expected class name, found \"" + token + "\"."));
+            
+            superclass_name = token;
+
+            token = tokens.skip_whitespace();
+        }
+        
+        CONCAT(buffer, "{var the_class = objj_allocateClassPair(" + superclass_name + ", \"" + class_name + "\"),\nmeta_class = the_class.isa;");
+        
+        // If we are at an opening curly brace ('{'), then we have an ivar declaration.
+        if (token == TOKEN_OPEN_BRACE)
+        {
+            var ivar_names = {},
+                ivar_count = 0,
+                declaration = [],
+                attributes,
+                accessors = {};
+            
+            while((token = tokens.skip_whitespace()) && token != TOKEN_CLOSE_BRACE)
+            {
+                if (token === TOKEN_PREPROCESSOR)
+                {
+                    token = tokens.next();
+                    if (token === TOKEN_ACCESSORS)
+                        attributes = this.accessors(tokens);
+                    else if (token !== TOKEN_OUTLET)
+                        throw new SyntaxError(this.error_message("*** Unexpected '@' token in ivar declaration ('@"+token+"')."));
+                }
+                else if (token == TOKEN_SEMICOLON)
+                {
+                    if (ivar_count++ === 0)
+                        CONCAT(buffer, "class_addIvars(the_class, [");
+                    else
+                        CONCAT(buffer, ", ");
+
+                    var name = declaration[declaration.length - 1];
+
+                    CONCAT(buffer, "new objj_ivar(\"" + name + "\")");
+                    
+                    ivar_names[name] = 1;
+                    declaration = [];
+                    
+                    if (attributes)
+                    {
+                        accessors[name] = attributes;
+                        attributes = NULL;
+                    }
+                }
+                else
+                    declaration.push(token);
+            }
+
+            // If we have objects in our declaration, the user forgot a ';'.
+            if (declaration.length)
+                throw new SyntaxError(this.error_message("*** Expected ';' in ivar declaration, found '}'."));
+
+            if (ivar_count)
+                CONCAT(buffer, "]);\n");
+            
+            if (!token)
+                throw new SyntaxError(this.error_message("*** Expected '}'"));
+
+            this.setClassInfo(class_name, superclass_name === "Nil" ? null : superclass_name, ivar_names);
+
+            // build up the list of illegal method param names
+            var ivar_names = this.allIvarNamesForClassName(class_name);
+
+            for (ivar_name in accessors)
+            {
+                var accessor = accessors[ivar_name],
+                    property = accessor["property"] || ivar_name;
+                    
+                // getter
+                var getterName = accessor["getter"] || property,
+                    getterCode = "(id)" + getterName + "\n{\nreturn " + ivar_name + ";\n}";
+
+                if (IS_NOT_EMPTY(instance_methods))
+                    CONCAT(instance_methods, ",\n");
+                
+                CONCAT(instance_methods, this.method(new Lexer(getterCode), ivar_names));
+                
+                // setter
+                if (accessor["readonly"])
+                    continue;
+                
+                var setterName = accessor["setter"];
+                
+                if (!setterName)
+                {
+                    var start = property.charAt(0) == '_' ? 1 : 0;
+                    setterName = (start ? "_" : "") + "set" + property.substr(start, 1).toUpperCase() + property.substring(start + 1) + ":";
+                }
+                
+                var setterCode = "(void)" + setterName + "(id)newValue\n{\n";
+                
+                if (accessor["copy"])
+                    setterCode += "if (" + ivar_name + " !== newValue)\n" + ivar_name + " = [newValue copy];\n}";
+                else
+                    setterCode += ivar_name + " = newValue;\n}";
+                
+                if (IS_NOT_EMPTY(instance_methods))
+                    CONCAT(instance_methods, ",\n");
+                
+                CONCAT(instance_methods, this.method(new Lexer(setterCode), ivar_names));
+            }
+        }
+        else
+            tokens.previous();
+        
+        // We must make a new class object for our class definition.
+        CONCAT(buffer, "objj_registerClassPair(the_class);\n");
+    }
+
+    if (!ivar_names)
+        var ivar_names = this.allIvarNamesForClassName(class_name);
+
+    while ((token = tokens.skip_whitespace()))
+    {
+        if (token == TOKEN_PLUS)
+        {
+            this._classMethod = true;
+
+            if (IS_NOT_EMPTY(class_methods))
+                CONCAT(class_methods, ", ");
+
+            CONCAT(class_methods, this.method(tokens, this._classVars));
+        }
+        else if (token == TOKEN_MINUS)
+        {
+            this._classMethod = false;
+
+            if (IS_NOT_EMPTY(instance_methods))
+                CONCAT(instance_methods, ", ");
+            
+            CONCAT(instance_methods, this.method(tokens, ivar_names));
+        }
+        // Check if we've reached @end...
+        else if (token == TOKEN_PREPROCESSOR)
+        {
+            // The only preprocessor directive we should ever encounter at this point is @end.
+            if ((token = tokens.next()) == TOKEN_END)
+                break;
+            else
+                throw new SyntaxError(this.error_message("*** Expected \"@end\", found \"@" + token + "\"."));
+        }
+        //else
+        //    throw new SyntaxError(this.error_message("*** Expected a method declaration, or \"@end\", found \"" + token + "\"."));
+    }
+    
+    if (IS_NOT_EMPTY(instance_methods))
+    {
+        CONCAT(buffer, "class_addMethods(the_class, [");
+        CONCAT(buffer, instance_methods);
+        CONCAT(buffer, "]);\n");
+    }
+    
+    if (IS_NOT_EMPTY(class_methods))
+    {
+        CONCAT(buffer, "class_addMethods(meta_class, [");
+        CONCAT(buffer, class_methods);
+        CONCAT(buffer, "]);\n");
+    }
+    
+    CONCAT(buffer, '}');
+
+    this._currentClass = "";
+}
+
+Preprocessor.prototype._import = function(tokens)
 {
 error += i == index ? ("  " + matches[i] + "  ") : matches[i];
 }
-error += "\n\nRegex matched: " + tokens[index];
-throw new SyntaxError(this.error_message(error));
+
+Preprocessor.prototype.method = function(/*Lexer*/ tokens, ivar_names)
+{
+    var buffer = new StringBuffer(),
+        token,
+        selector = "",
+        parameters = [],
+        types = [null];
+
+    ivar_names = ivar_names || {};
+
+    while((token = tokens.skip_whitespace()) && token !== TOKEN_OPEN_BRACE && token !== TOKEN_SEMICOLON)
+    {
+        if (token == TOKEN_COLON)
+        {
+            var type = "";
+
+            // Colons are part of the selector name
+            selector += token;
+            
+            token = tokens.skip_whitespace();
+            
+            if (token == TOKEN_OPEN_PARENTHESIS)
+            {
+                // Swallow parameter/return type.  Perhaps later we can use this for debugging?
+                while((token = tokens.skip_whitespace()) && token != TOKEN_CLOSE_PARENTHESIS)
+                    type += token;
+    
+                token = tokens.skip_whitespace();
+            }
+            
+            // Add the type. If it's empty, add null instead.
+            types[parameters.length+1] = type || null;
+
+            // Since this follows a colon, this must be the parameter name.
+            parameters[parameters.length] = token;
+
+            if (token in ivar_names)
+                throw new SyntaxError(this.error_message("*** Method ( "+selector+" ) uses a parameter name that is already in use ( "+token+" )"));                
+        }
+        else if (token == TOKEN_OPEN_PARENTHESIS)
+        {
+            var type = "";
+
+            // Since :( is handled above, this must be the return type, just swallow it.
+            while((token = tokens.skip_whitespace()) && token != TOKEN_CLOSE_PARENTHESIS)
+                type += token;
+
+            // types[0] is the return argument
+            types[0] = type || null;
+        }
+        // Argument list ", ..."
+        else if (token == TOKEN_COMMA)
+        {
+            // At this point, "..." MUST follow.
+            if ((token = tokens.skip_whitespace()) != TOKEN_PERIOD || tokens.next() != TOKEN_PERIOD || tokens.next() != TOKEN_PERIOD)
+                throw new SyntaxError(this.error_message("*** Argument list expected after ','."));
+
+            // FIXME: Shouldn't allow any more after this.
+        }
+        // Build selector name.
+        else
+            selector += token;
+    }
+
+    if (token === TOKEN_SEMICOLON)
+    {
+        token = tokens.skip_whitespace();
+        if (token !== TOKEN_OPEN_BRACE)
+        {
+            throw new SyntaxError(this.error_message("Invalid semi-colon in method declaration. "+
+            "Semi-colons are allowed only to terminate the method signature, before the open brace."));
+        }
+    }
+
+    var index = 0,
+        count = parameters.length;
+    
+    CONCAT(buffer, "new objj_method(sel_getUid(\"");
+    CONCAT(buffer, selector);
+    CONCAT(buffer, "\"), function");
+
+    this._currentSelector = selector;
+
+    if (this._flags & Preprocessor.Flags.IncludeDebugSymbols)
+        CONCAT(buffer, " $" + this._currentClass + "__" + selector.replace(/:/g, "_"));
+    
+    CONCAT(buffer, "(self, _cmd");
+    
+    for(; index < count; ++index)
+    {
+        CONCAT(buffer, ", ");
+        CONCAT(buffer, parameters[index]);
+    }
+
+    CONCAT(buffer, ")\n{ with(self)\n{");
+    CONCAT(buffer, this.preprocess(tokens, NULL, TOKEN_CLOSE_BRACE, TOKEN_OPEN_BRACE));
+    CONCAT(buffer, "}\n}");
+    // TODO: actually use Flags.IncludeTypeSignatures flag instead of tying to Flags.IncludeDebugSymbols
+    if (this._flags & Preprocessor.Flags.IncludeDebugSymbols) //flags.IncludeTypeSignatures)
+        CONCAT(buffer, ","+JSON.stringify(types));
+    CONCAT(buffer, ")");
+
+    this._currentSelector = "";
+
+    return buffer;
 }
 start = new Date().getTime();
 var result = this._parser.compile(matches, derivation);

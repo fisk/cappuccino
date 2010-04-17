@@ -31,6 +31,7 @@
 @import "CPCibLoading.j"
 @import "CPPlatform.j"
 
+#include "Platform/Platform.h"
 
 var CPMainCibFile               = @"CPMainCibFile",
     CPMainCibFileHumanFriendly  = @"Main cib file base name";
@@ -212,85 +213,46 @@ CPRunContinuesResponse  = -1002;
 {
     if (_delegate == aDelegate)
         return;
-    
-    var defaultCenter = [CPNotificationCenter defaultCenter];
-    
+
+    var defaultCenter = [CPNotificationCenter defaultCenter],
+        delegateNotifications =
+        [
+            CPApplicationWillFinishLaunchingNotification, @selector(applicationWillFinishLaunching:),
+            CPApplicationDidFinishLaunchingNotification, @selector(applicationDidFinishLaunching:),
+            CPApplicationWillBecomeActiveNotification, @selector(applicationWillBecomeActive:),
+            CPApplicationDidBecomeActiveNotification, @selector(applicationDidBecomeActive:),
+            CPApplicationWillResignActiveNotification, @selector(applicationWillResignActive:),
+            CPApplicationDidResignActiveNotification, @selector(applicationDidResignActive:),
+            CPApplicationWillTerminateNotification, @selector(applicationWillTerminate:)
+        ],
+        count = [delegateNotifications count];
+
     if (_delegate)
     {
-        [defaultCenter
-            removeObserver:_delegate
-                      name:CPApplicationWillFinishLaunchingNotification
-                    object:self];
+        var index = 0;
 
-        [defaultCenter
-            removeObserver:_delegate
-                      name:CPApplicationDidFinishLaunchingNotification
-                    object:self];
+        for (; index < count; index += 2)
+        {
+            var notificationName = delegateNotifications[index],
+                selector = delegateNotifications[index + 1];
 
-        [defaultCenter
-            removeObserver:_delegate
-                      name:CPApplicationWillBecomeActiveNotification
-                    object:self];
-
-        [defaultCenter
-            removeObserver:_delegate
-                      name:CPApplicationDidBecomeActiveNotification
-                    object:self];
-
-        [defaultCenter
-            removeObserver:_delegate
-                      name:CPApplicationWillResignActiveNotification
-                    object:self];
-
-        [defaultCenter
-            removeObserver:_delegate
-                      name:CPApplicationDidResignActiveNotification
-                    object:self];
+            if ([_delegate respondsToSelector:selector])
+                [defaultCenter removeObserver:_delegate name:notificationName object:self];
+        }
     }
-    
+
     _delegate = aDelegate;
-    
-    if ([_delegate respondsToSelector:@selector(applicationWillFinishLaunching:)])
-        [defaultCenter
-            addObserver:_delegate
-               selector:@selector(applicationWillFinishLaunching:)
-                   name:CPApplicationWillFinishLaunchingNotification
-                 object:self];
-    
-    if ([_delegate respondsToSelector:@selector(applicationDidFinishLaunching:)])
-        [defaultCenter
-            addObserver:_delegate
-               selector:@selector(applicationDidFinishLaunching:)
-                   name:CPApplicationDidFinishLaunchingNotification
-                 object:self];
 
-    if ([_delegate respondsToSelector:@selector(applicationWillBecomeActive:)])
-        [defaultCenter
-            addObserver:_delegate
-               selector:@selector(applicationWillBecomeActive:)
-                   name:CPApplicationWillBecomeActiveNotification
-                 object:self];
+    var index = 0;
 
-    if ([_delegate respondsToSelector:@selector(applicationDidBecomeActive:)])
-        [defaultCenter
-            addObserver:_delegate
-               selector:@selector(applicationDidBecomeActive:)
-                   name:CPApplicationDidBecomeActiveNotification
-                 object:self];
+    for (; index < count; index += 2)
+    {
+        var notificationName = delegateNotifications[index],
+            selector = delegateNotifications[index + 1];
 
-    if ([_delegate respondsToSelector:@selector(applicationWillResignActive:)])
-        [defaultCenter
-            addObserver:_delegate
-               selector:@selector(applicationWillResignActive:)
-                   name:CPApplicationWillResignActiveNotification
-                 object:self];
-
-    if ([_delegate respondsToSelector:@selector(applicationDidResignActive:)])
-        [defaultCenter
-            addObserver:_delegate
-               selector:@selector(applicationDidResignActive:)
-                   name:CPApplicationDidResignActiveNotification
-                 object:self];
+        if ([_delegate respondsToSelector:selector])
+            [defaultCenter addObserver:_delegate selector:selector name:notificationName object:self];
+    }
 }
 
 /*!
@@ -369,6 +331,10 @@ CPRunContinuesResponse  = -1002;
 
 - (void)terminate:(id)aSender
 {
+    [[CPNotificationCenter defaultCenter]
+        postNotificationName:CPApplicationWillTerminateNotification
+                      object:self];
+
     if (![CPPlatform isBrowser])
     {
         [[CPDocumentController sharedDocumentController] closeAllDocumentsWithDelegate:self
@@ -1137,6 +1103,13 @@ var _CPRunModalLoop = function(anEvent)
 
 function CPApplicationMain(args, namedArgs)
 {
+
+#if PLATFORM(DOM)
+    // hook to allow recorder, etc to manipulate things before starting AppKit
+    if (window.parent !== window && typeof window.parent._childAppIsStarting === "function")
+        window.parent._childAppIsStarting(window);
+#endif
+
     var mainBundle = [CPBundle mainBundle],
         principalClass = [mainBundle principalClass];
 

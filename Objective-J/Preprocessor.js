@@ -85,19 +85,52 @@ var fs;
 var fs2;
 for (var j = 0; j < tol; j++)
 {
-var tok = this._tokens[j];
-var pm;
-if ((pm = tokenLit[tok]) === undefined) {
-if (/\d/.test(fs = tok.charAt(0))){
-this._numbers.push(1);
-} else if (fs === '"' || fs === "'" || (fs2 = tok.charAt(1)) === '"' || fs2 === "'"){
-this._numbers.push(14);
-} else if (fs === '/'){
-this._numbers.push(13);
-} else if (fs === '@'){
-this._numbers.push(89);
-} else {
-this._numbers.push(44);
+    var token = tokens.skip_whitespace(),
+        attributes = {};
+
+    if (token != TOKEN_OPEN_PARENTHESIS)
+    {
+        tokens.previous();
+        
+        return attributes;
+    }
+
+    while ((token = tokens.skip_whitespace()) != TOKEN_CLOSE_PARENTHESIS)
+    {
+        var name = token,
+            value = true;
+
+        if (!IS_WORD(name))
+            throw new SyntaxError(this.error_message("*** @accessors attribute name not valid."));
+
+        if ((token = tokens.skip_whitespace()) == TOKEN_EQUAL)
+        {
+            value = tokens.skip_whitespace();
+            
+            if (!IS_WORD(value))
+                throw new SyntaxError(this.error_message("*** @accessors attribute value not valid."));
+
+            if (name == "setter")
+            {
+                if ((token = tokens.next()) != TOKEN_COLON)
+                    throw new SyntaxError(this.error_message("*** @accessors setter attribute requires argument with \":\" at end of selector name."));
+                
+                value += ":";
+            }
+
+            token = tokens.skip_whitespace();
+        }
+
+        attributes[name] = value;
+
+        if (token == TOKEN_CLOSE_PARENTHESIS)
+            break;
+        
+        if (token != TOKEN_COMMA)
+            throw new SyntaxError(this.error_message("*** Expected ',' or ')' in @accessors attribute list."));
+    }
+    
+    return attributes;
 }
 } else if (typeof(pm) !== "number") {this._numbers.push(44);}
 else {this._numbers.push(pm);}

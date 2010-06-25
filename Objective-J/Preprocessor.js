@@ -48,9 +48,10 @@ Preprocessor.prototype.error_message = function(errorMessage)
 return errorMessage + " <Context File: "+ this._URL +
 (this._currentClass ? " Class: "+this._currentClass : "") +
 (this._currentSelector ? " Method: "+this._currentSelector : "") +">";
-};anyToken = /(((?:0x[0-9A-Fa-f]+)|(?:(?:[.]\d+(?:[eE][+-]?\d+)?)|\d+(?:(?:[.]\d+)?(?:[eE][+-]?\d+)?)?)))|(,)|(:)|(;)|(\()|(\))|(\{)|(\})|(\[)|(\])|(\.\.\.)|(\.)|(\/(?:[^\/\\\n]|\\.)*\/[gim]*(?!\s*[\{\[\(\w]))|((?:@?"(?:[^"\\\n]|\\.)*?")|(?:'(?:[^'\\\n]|\\.)*?'))|(\bfunction(?![$\w]))|(\bvar(?![$\w]))|(\bcase(?![$\w]))|(\bdefault(?![$@\w]))|(\bswitch(?![$\w]))|(\bbreak(?![$\w]))|(\bcontinue(?![$\w]))|(\binstanceof(?![$\w]))|(\bsuper(?![$\w]))|(\breturn(?![$\w]))|(\bif(?![$\w]))|(\belse(?![$\w]))|(\bdo(?![$\w]))|(\bwhile(?![$\w]))|(\bfor(?![$\w]))|(\btry(?![$\w]))|(\bcatch(?![$\w]))|(\bfinally(?![$\w]))|(\bthrow(?![$\w]))|(\bnew(?![$\w]))|(\btypeof(?![$\w]))|(\bwith(?![$\w]))|(\bin(?![$\w]))|(\bdelete(?![$\w]))|(\blong(?![$\w]))|(\bint(?![$\w]))|(\bchar(?![$\w]))|(\bid(?![$\w]))|(\bshort(?![$\w]))|(\bunsigned(?![$\w]))|([A-Za-z_$][$\w]*)|(===)|(==)|(=)|(\+=)|(\+\+)|(\+)|(-=)|(--)|(-)|(\>\>\>=)|(\>\>\>)|(\<\<=)|(\>\>=)|(\*=)|(\/=)|(%=)|(&=)|(\|=)|(\^=)|(\>=)|(\<=)|(!==)|(!=)|(\<\<)|(\>\>)|(&&)|(\|\|)|(\>)|(\<)|(\*)|(\/)|(%)|(~)|(!)|(&)|(\|)|(\^)|(\?)|(@implementation(?![$\w]))|(@accessors(?![$\w]))|(@outlet(?![$\w]))|(@action(?![$\w]))|(@class(?![$\w]))|(@end(?![$\w]))|(@import\s*\<[^\n]*?\>)|(@import(?![$\w]))|(@selector(?![$\w]))|(@each(?![$\w]))|(\n)/mg;
+};anyToken = /(((?:0x[0-9A-Fa-f]+)|(?:(?:[.]\d+(?:[eE][+-]?\d+)?)|\d+(?:(?:[.]\d+)?(?:[eE][+-]?\d+)?)?)))|(,)|(:)|(;)|(\()|(\))|(\{)|(\})|(\[)|(\])|(\.\.\.)|(\.)|(\/(?:[^\/\\\n]|\\.)*\/[gim]*(?!\s*[\{\[\(\w]))|((?:@?"(?:[^"\\\n]|\\.)*?")|(?:'(?:[^'\\\n]|\\.)*?'))|(\bfunction(?![$\w]))|(\bvar(?![$\w]))|(\bcase(?![$\w]))|(\bdefault(?![$@\w]))|(\bswitch(?![$\w]))|(\bbreak(?![$\w]))|(\bcontinue(?![$\w]))|(\binstanceof(?![$\w]))|(\bsuper(?![$\w]))|(\breturn(?![$\w]))|(\bif(?![$\w]))|(\belse(?![$\w]))|(\bdo(?![$\w]))|(\bwhile(?![$\w]))|(\bfor(?![$\w]))|(\btry(?![$\w]))|(\bcatch(?![$\w]))|(\bfinally(?![$\w]))|(\bthrow(?![$\w]))|(\bnew(?![$\w]))|(\btypeof(?![$\w]))|(\bwith(?![$\w]))|(\bin(?![$\w]))|(\bdelete(?![$\w]))|(\blong(?![$\w]))|(\bint(?![$\w]))|(\bchar(?![$\w]))|(\bid(?![$\w]))|(\bshort(?![$\w]))|(\bunsigned(?![$\w]))|([A-Za-z_$][$\w]*)|(===)|(==)|(=)|(\+=)|(\+\+)|(\+)|(-=)|(--)|(-)|(\>\>\>=)|(\>\>\>)|(\<\<=)|(\>\>=)|(\*=)|(\/=)|(%=)|(&=)|(\|=)|(\^=)|(\>=)|(\<=)|(!==)|(!=)|(\<\<)|(\>\>)|(&&)|(\|\|)|(\>)|(\<)|(\*)|(\/)|(%)|(~)|(!)|(&)|(\|)|(\^)|(\?)|(@implementation(?![$\w]))|(@accessors(?![$\w]))|(@outlet(?![$\w]))|(@action(?![$\w]))|(@class(?![$\w]))|(@end(?![$\w]))|(@import\s*\<[^\n]*?\>)|(@import(?![$\w]))|(@selector(?![$\w]))|(@each(?![$\w]))|((?:\n\s*)+)/mg;
 anyComment = /(\/(?:[^\/\\\n]|\\.)*\/[gim]*(?!\s*[\{\[\(\w]))|((?:@?"(?:[^"\\\n]|\\.)*?")|(?:'(?:[^'\\\n]|\\.)*?'))|(\/\/.*\n?)|(\/\*(?:.|\n)*?\*\/(?=.|$))|(\/)|((?:[^\/"']|[\r\n])*)/mg;
-tokenLit = {",":2,":":3,";":4,"(":5,")":6,"{":7,"}":8,"...":11,".":12,"function":15,"var":16,"case":17,"default":18,"switch":19,"break":20,"continue":21,"instanceof":22,"super":23,"return":24,"if":25,"else":26,"do":27,"while":28,"for":29,"try":30,"catch":31,"finally":32,"throw":33,"new":34,"typeof":35,"with":36,"in":37,"delete":38,"long":39,"int":40,"char":41,"id":42,"short":43,"unsigned":44,"===":46,"==":47,"=":48,"+=":49,"++":50,"+":51,"-=":52,"--":53,"-":54,">>>=":55,">>>":56,"<<=":57,">>=":58,"*=":59,"/=":60,"%=":61,"&=":62,"|=":63,"^=":64,">=":65,"<=":66,"!==":67,"!=":68,"<<":69,">>":70,"&&":71,"||":72,">":73,"<":74,"*":75,"/":76,"%":77,"~":78,"!":79,"&":80,"|":81,"^":82,"?":83,"@implementation":84,"@accessors":85,"@outlet":86,"@action":87,"@class":88,"@end":89,"@import":91,"@selector":92,"@each":93};
+tokenLit = {",":2,":":3,";":4,"{":7,"}":8,"...":11,".":12,"function":15,"var":16,"case":17,"default":18,"switch":19,"break":20,"continue":21,"instanceof":22,"super":23,"return":24,"if":25,"else":26,"do":27,"while":28,"for":29,"try":30,"catch":31,"finally":32,"throw":33,"new":34,"typeof":35,"with":36,"in":37,"delete":38,"long":39,"int":40,"char":41,"id":42,"short":43,"unsigned":44,"===":46,"==":47,"=":48,"+=":49,"++":50,"+":51,"-=":52,"--":53,"-":54,">>>=":55,">>>":56,"<<=":57,">>=":58,"*=":59,"/=":60,"%=":61,"&=":62,"|=":63,"^=":64,">=":65,"<=":66,"!==":67,"!=":68,"<<":69,">>":70,"&&":71,"||":72,">":73,"<":74,"*":75,"/":76,"%":77,"~":78,"!":79,"&":80,"|":81,"^":82,"?":83,"@implementation":84,"@accessors":85,"@outlet":86,"@action":87,"@class":88,"@end":89,"@import":91,"@selector":92,"@each":93};
+newlineInsensitive = {"?":true,"^":true,"|":true,"&":true,"!":true,"~":true,"%":true,"/":true,"*":true,"<":true,">":true,"||":true,"&&":true,">>":true,"<<":true,"!=":true,"!==":true,"<=":true,">=":true,"^=":true,"|=":true,"&=":true,"%=":true,"/=":true,"*=":true,">>=":true,"<<=":true,">>>=":true,"-":true,"+":true,"+=":true,"-=":true,"=":true,"==":true,"===":true,"do":true,"else":true,")":true,"{":true,"}":true,"throw":true,"new":true,".":true,"...":true,";":true,":":true,",":true};
 function objj_lexer(str)
 {
 this._tokens = null;
@@ -99,6 +100,12 @@ parenthesis++;
 } else if (fs === "]") {
 this._numbers.push(10);
 parenthesis--;
+} else if (fs === "(") {
+this._numbers.push(5);
+parenthesis++;
+} else if (fs === ")") {
+this._numbers.push(6);
+parenthesis--;
 } else if (/\d/.test(fs)){
 this._numbers.push(1);
 } else if (fs === '"' || fs === "'" || (fs2 = tok.charAt(1)) === '"' || fs2 === "'"){
@@ -108,7 +115,7 @@ this._numbers.push(13);
 } else if (fs === '@'){
 this._numbers.push(90);
 } else if (fs === "\n") {
-if (parenthesis === 0 && this._numbers[this._numbers.length - 1] === 10) {
+if (parenthesis === 0 && this._tokens[j+1] === "[" && newlineInsensitive[this._tokens[j-1]] === undefined) {
 this._numbers.push(4);
 this._tokens[j] = ";";
 } else {

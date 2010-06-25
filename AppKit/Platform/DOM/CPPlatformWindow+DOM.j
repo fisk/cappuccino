@@ -1204,13 +1204,9 @@ var supportsNativeDragAndDrop = [CPPlatform supportsDragAndDrop];
         }
 
         var insertionIndex = 0;
-<<<<<<< HEAD
-        if (middle !== undefined) 
-            insertionIndex = _windowLevels[middle] > aLevel ? middle : middle + 1;
-=======
+
         if (middle !== undefined)
             insertionIndex = _windowLevels[middle] > aLevel ? middle : middle + 1
->>>>>>> 9a3c2d5311a98d15f56733c620528c3981234285
 
         [_windowLevels insertObject:aLevel atIndex:insertionIndex];
         layer._DOMElement.style.zIndex = aLevel;
